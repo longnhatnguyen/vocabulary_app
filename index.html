@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ứng dụng học từ vựng</title>
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.v2.css?v=20260923-2">
 
   <!-- Đọc file Excel -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -16,7 +16,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
   <!-- Code của ứng dụng -->
-  <script defer src="app.js"></script>
+  <script defer src="app.v2.js?v=20260923-2"></script>
 </head>
 
 <body>
@@ -24,10 +24,12 @@
 
     <section class="card">
       <h1>📚 Ứng dụng học từ vựng</h1>
-      <p class="muted">
-        Import Excel → lưu thành sổ tay → chọn sổ để học → chọn nội dung kiểm tra →
-        lọc theo tiến độ → trộn từ → làm bài → chấm điểm
-      </p>
+      <div class="title-row">
+        <p class="muted">
+          Import Excel → lưu thành sổ tay → chọn sổ để học → kiểm tra → chấm điểm
+        </p>
+        <span id="buildBadge" class="build-badge">Build mới</span>
+      </div>
 
       <div class="toolbar">
         <label class="file-label">
@@ -58,51 +60,78 @@
         <span id="syncStatus" class="sync-status"></span>
       </div>
 
-      <div class="notebook-box">
-        <div class="notebook-title">
+      <section class="notebook-card">
+        <div class="notebook-card-head">
           <div>
-            <h3>📒 Sổ tay từ vựng</h3>
-            <div class="notebook-help">
-              Import Excel rồi lưu thành một sổ tay. Lần sau chỉ cần chọn sổ để học, không cần upload lại.
-            </div>
+            <div class="eyebrow">THƯ VIỆN CỦA BẠN</div>
+            <h2 class="notebook-heading">📒 Sổ tay từ vựng</h2>
+            <p class="notebook-subtitle">
+              Upload Excel một lần, lưu thành sổ và mở lại trên mọi thiết bị sau khi đăng nhập.
+            </p>
+          </div>
+
+          <div class="active-notebook-pill">
+            <span class="dot"></span>
+            <span id="activeNotebookLabel">Chưa chọn sổ</span>
           </div>
         </div>
 
-        <div class="notebook-controls">
-          <div class="notebook-field notebook-select-field">
-            <label for="notebookSelect">Chọn sổ để học</label>
-            <select id="notebookSelect">
-              <option value="">— Chọn sổ tay —</option>
-            </select>
+        <div class="notebook-layout">
+          <div class="notebook-panel primary-panel">
+            <label class="field-label" for="notebookSelect">Sổ đang học</label>
+
+            <div class="select-with-icon">
+              <span class="field-icon">📚</span>
+              <select id="notebookSelect">
+                <option value="">— Chọn một sổ tay —</option>
+              </select>
+            </div>
+
+            <div class="panel-hint">
+              Chọn sổ đã lưu để tải lại toàn bộ danh sách từ.
+            </div>
           </div>
 
-          <div class="notebook-field notebook-name-field">
-            <label for="notebookName">Tên sổ tay</label>
+          <div class="notebook-panel">
+            <label class="field-label" for="notebookName">Tên sổ tay</label>
+
             <input
+              class="notebook-name-input"
               type="text"
               id="notebookName"
               maxlength="80"
               placeholder="Ví dụ: HSK 1 - Bài 1"
             >
-          </div>
 
+            <div class="panel-hint">
+              Sau khi import Excel, đặt tên rồi bấm <b>Lưu sổ</b>.
+            </div>
+          </div>
+        </div>
+
+        <div class="notebook-footer">
           <div class="notebook-actions">
-            <button id="saveNotebookBtn" type="button" class="success">
-              💾 Lưu sổ
+            <button id="saveNotebookBtn" type="button" class="btn-notebook-save">
+              <span>💾</span>
+              <span>Lưu sổ</span>
             </button>
-            <button id="newNotebookBtn" type="button" class="secondary">
-              ➕ Tạo sổ mới
+
+            <button id="newNotebookBtn" type="button" class="btn-soft">
+              <span>＋</span>
+              <span>Sổ mới</span>
             </button>
-            <button id="deleteNotebookBtn" type="button" class="danger">
-              🗑️ Xóa sổ
+
+            <button id="deleteNotebookBtn" type="button" class="btn-soft danger-soft">
+              <span>🗑</span>
+              <span>Xóa sổ</span>
             </button>
           </div>
-        </div>
 
-        <div id="notebookStatus" class="notebook-status">
-          Chưa chọn sổ tay.
+          <div id="notebookStatus" class="notebook-status">
+            Chưa chọn sổ tay.
+          </div>
         </div>
-      </div>
+      </section>
 
       <div class="settings-grid">
         <div class="setting-box">
