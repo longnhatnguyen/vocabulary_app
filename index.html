@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ứng dụng học từ vựng</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <style>
     * { box-sizing: border-box; }
     body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#f5f7fb; color:#222; }
@@ -42,6 +45,16 @@
 
     .score-box { display:none; margin-top:15px; padding:14px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; font-weight:bold; font-size:18px; }
 
+    
+    .auth-box {
+      margin-top:14px; display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+      padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f8fafc;
+    }
+    .auth-status { font-size:14px; color:#475467; }
+    .sync-status { font-size:13px; color:#667085; }
+    .user-chip { display:none; align-items:center; gap:8px; font-size:14px; font-weight:bold; }
+    .user-chip img { width:28px; height:28px; border-radius:50%; }
+
     @media (max-width:900px){ .settings-grid{grid-template-columns:1fr;} }
   </style>
 </head>
@@ -59,6 +72,17 @@
       <button class="secondary" onclick="restoreOriginal()">↩️ Thứ tự gốc</button>
       <button class="success" onclick="grade()">✅ Chấm điểm</button>
       <button class="danger" onclick="resetProgress()">🗑️ Xóa tiến độ</button>
+    </div>
+
+    <div class="auth-box">
+      <button id="loginBtn" onclick="loginWithGoogle()">🔐 Đăng nhập Google</button>
+      <div id="userChip" class="user-chip">
+        <img id="userPhoto" alt="">
+        <span id="userName"></span>
+      </div>
+      <button id="logoutBtn" class="secondary" onclick="logoutGoogle()" style="display:none;">Đăng xuất</button>
+      <span id="authStatus" class="auth-status">Chưa đăng nhập — tiến độ đang lưu trên trình duyệt này.</span>
+      <span id="syncStatus" class="sync-status"></span>
     </div>
 
     <div class="settings-grid">
@@ -94,7 +118,7 @@
     </div>
 
     <div class="note">
-      Một từ được xem là “Đã thuộc” nếu bạn đánh dấu thủ công hoặc đã từng trả lời đúng nội dung đang kiểm tra. Khi chọn “Không kiểm tra”, trạng thái dựa trên dấu “Đã thuộc” thủ công.
+      Một từ được xem là “Đã thuộc” nếu bạn đánh dấu thủ công hoặc đã từng trả lời đúng nội dung đang kiểm tra. Khi đăng nhập Google, tiến độ được đồng bộ lên Firestore để dùng lại trên thiết bị khác.
     </div>
 
     <div id="status" class="status">Chưa có dữ liệu.</div>
@@ -119,6 +143,160 @@ const columns = [
 
 const STORAGE_KEY = 'vocabulary_progress_v1';
 const MANUAL_KNOWN_KEY = 'vocabulary_manual_known_v1';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBTtmZhxAEihOxupnwj1vZah3I9F0dKqws",
+  authDomain: "vocabularyapp-90ce6.firebaseapp.com",
+  projectId: "vocabularyapp-90ce6",
+  storageBucket: "vocabularyapp-90ce6.firebasestorage.app",
+  messagingSenderId: "262794086618",
+  appId: "1:262794086618:web:33021b7bcc79b944f4fde3",
+  measurementId: "G-P8RK8BEEWC"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+let currentUser = null;
+let isLoadingCloud = false;
+
+function setSyncStatus(message){
+  const el = document.getElementById('syncStatus');
+  if(el) el.textContent = message || '';
+}
+
+function makeCloudDocId(wordKey){
+  const bytes = new TextEncoder().encode(wordKey);
+  let binary = '';
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function getRowByKey(wordKey){
+  return currentData.find(r => makeWordKey(r) === wordKey)
+      || originalData.find(r => makeWordKey(r) === wordKey);
+}
+
+async function syncWordToCloud(row){
+  if(!currentUser || !row || isLoadingCloud) return;
+  try{
+    setSyncStatus('Đang đồng bộ...');
+    const wordKey = makeWordKey(row);
+    const progress = getProgress();
+    const manual = getManualKnown();
+    await db.collection('users').doc(currentUser.uid).collection('vocabulary')
+      .doc(makeCloudDocId(wordKey))
+      .set({
+        wordKey,
+        word: row['Từ'] ?? '',
+        pronunciation: row['Phiên âm'] ?? '',
+        partOfSpeech: row['Loại từ'] ?? '',
+        meaning: row['Nghĩa'] ?? '',
+        manualKnown: manual[wordKey] === true,
+        progress: progress[wordKey] || {},
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+    setSyncStatus('☁️ Đã đồng bộ');
+  }catch(err){
+    console.error('Firestore sync error:', err);
+    setSyncStatus('⚠️ Chưa đồng bộ được');
+  }
+}
+
+async function uploadAllLocalProgress(){
+  if(!currentUser) return;
+  const keys = new Set([...Object.keys(getProgress()), ...Object.keys(getManualKnown())]);
+  for(const wordKey of keys){
+    const row = getRowByKey(wordKey);
+    if(row) await syncWordToCloud(row);
+  }
+}
+
+async function loadProgressFromCloud(){
+  if(!currentUser) return;
+  isLoadingCloud = true;
+  setSyncStatus('Đang tải tiến độ...');
+  try{
+    const snapshot = await db.collection('users').doc(currentUser.uid).collection('vocabulary').get();
+    const localProgress = getProgress();
+    const localManual = getManualKnown();
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const wordKey = data.wordKey;
+      if(!wordKey) return;
+      if(!localProgress[wordKey]) localProgress[wordKey] = {};
+      const remoteProgress = data.progress || {};
+      Object.keys(remoteProgress).forEach(field => {
+        if(remoteProgress[field] === true || localProgress[wordKey][field] !== true){
+          localProgress[wordKey][field] = remoteProgress[field];
+        }
+      });
+      if(data.manualKnown === true) localManual[wordKey] = true;
+    });
+
+    saveProgress(localProgress);
+    saveManualKnown(localManual);
+    setSyncStatus('☁️ Đã tải tiến độ');
+  }catch(err){
+    console.error('Firestore load error:', err);
+    setSyncStatus('⚠️ Không tải được tiến độ');
+  }finally{
+    isLoadingCloud = false;
+  }
+
+  await uploadAllLocalProgress();
+  if(currentData.length) renderTable();
+}
+
+async function loginWithGoogle(){
+  try{
+    setSyncStatus('Đang đăng nhập...');
+    await auth.signInWithPopup(googleProvider);
+  }catch(err){
+    console.error('Google login error:', err);
+    if(err.code === 'auth/unauthorized-domain'){
+      alert('Tên miền GitHub Pages của bạn chưa được cho phép. Vào Authentication → Settings → Authorized domains và thêm domain GitHub Pages.');
+    }else if(err.code !== 'auth/popup-closed-by-user'){
+      alert('Đăng nhập Google chưa thành công: ' + (err.message || err.code));
+    }
+    setSyncStatus('');
+  }
+}
+
+async function logoutGoogle(){
+  try{ await auth.signOut(); }catch(err){ console.error(err); }
+}
+
+auth.onAuthStateChanged(async user => {
+  currentUser = user || null;
+  const loginBtn = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const userChip = document.getElementById('userChip');
+  const userName = document.getElementById('userName');
+  const userPhoto = document.getElementById('userPhoto');
+  const authStatus = document.getElementById('authStatus');
+
+  if(user){
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+    userChip.style.display = 'flex';
+    userName.textContent = user.displayName || user.email || 'Google user';
+    if(user.photoURL){ userPhoto.src = user.photoURL; userPhoto.style.display = 'block'; }
+    else userPhoto.style.display = 'none';
+    authStatus.textContent = 'Đã đăng nhập — tiến độ sẽ đồng bộ với Firestore.';
+    await loadProgressFromCloud();
+  }else{
+    loginBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+    userChip.style.display = 'none';
+    authStatus.textContent = 'Chưa đăng nhập — tiến độ đang lưu trên trình duyệt này.';
+    setSyncStatus('');
+  }
+});
+
 
 let originalData = [];
 let currentData = [];
@@ -161,12 +339,9 @@ function isManuallyKnown(row){
 function setManuallyKnown(row, value){
   const data = getManualKnown();
   const key = makeWordKey(row);
-  if(value){
-    data[key] = true;
-  }else{
-    delete data[key];
-  }
+  if(value){ data[key] = true; } else { delete data[key]; }
   saveManualKnown(data);
+  syncWordToCloud(row);
 }
 
 function makeWordKey(row){
@@ -202,20 +377,16 @@ function markKnown(row, quizColumn){
   if(!progress[wordKey]) progress[wordKey] = {};
   progress[wordKey][quizColumn] = true;
   saveProgress(progress);
+  syncWordToCloud(row);
 }
 
 function markUnknown(row, quizColumn){
   const progress = getProgress();
   const wordKey = makeWordKey(row);
   if(!progress[wordKey]) progress[wordKey] = {};
-
-  // Nếu từ này đã từng trả lời đúng thì giữ nguyên trạng thái đã thuộc.
-  // Chỉ ghi false khi trước đó chưa từng đúng.
-  if(progress[wordKey][quizColumn] !== true){
-    progress[wordKey][quizColumn] = false;
-  }
-
+  if(progress[wordKey][quizColumn] !== true){ progress[wordKey][quizColumn] = false; }
   saveProgress(progress);
+  syncWordToCloud(row);
 }
 
 function handleFile(event){
@@ -255,6 +426,7 @@ function handleFile(event){
       document.getElementById('status').textContent =
         `Đã đọc ${currentData.length} từ từ file ${file.name}`;
       renderTable();
+      if(currentUser) uploadAllLocalProgress();
 
     }catch(err){
       console.error(err);
@@ -527,10 +699,32 @@ function grade(){
 }
 
 
-function resetProgress(){
-  if(!confirm('Bạn có chắc muốn xóa toàn bộ tiến độ học đã lưu trên trình duyệt này không?')) return;
+async function resetProgress(){
+  const cloudText = currentUser ? ' và trên Firestore' : '';
+  if(!confirm(`Bạn có chắc muốn xóa toàn bộ tiến độ học đã lưu trên trình duyệt này${cloudText} không?`)) return;
+
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(MANUAL_KNOWN_KEY);
+
+  if(currentUser){
+    try{
+      setSyncStatus('Đang xóa tiến độ trên cloud...');
+      const snapshot = await db.collection('users').doc(currentUser.uid).collection('vocabulary').get();
+      let batch = db.batch();
+      let count = 0;
+      for(const docSnap of snapshot.docs){
+        batch.delete(docSnap.ref);
+        count++;
+        if(count === 450){ await batch.commit(); batch = db.batch(); count = 0; }
+      }
+      if(count > 0) await batch.commit();
+      setSyncStatus('☁️ Đã xóa tiến độ cloud');
+    }catch(err){
+      console.error(err);
+      setSyncStatus('⚠️ Xóa cloud chưa thành công');
+    }
+  }
+
   renderTable();
   alert('Đã xóa toàn bộ tiến độ học.');
 }
