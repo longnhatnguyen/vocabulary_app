@@ -252,9 +252,95 @@ tr.wrong {
   font-weight: 700;
 }
 
+
+.notebook-box {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.notebook-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notebook-title h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.notebook-help {
+  margin-top: 5px;
+  color: #667085;
+  font-size: 13px;
+}
+
+.notebook-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+}
+
+.notebook-field {
+  min-width: 0;
+}
+
+.notebook-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: #475467;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.notebook-field input[type="text"] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.notebook-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notebook-status {
+  margin-top: 10px;
+  min-height: 18px;
+  color: #475467;
+  font-size: 13px;
+}
+
+.notebook-status.success-text {
+  color: #166534;
+}
+
+.notebook-status.error-text {
+  color: #b42318;
+}
+
+
 @media (max-width: 900px) {
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .notebook-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .notebook-actions {
+    align-items: stretch;
   }
 }
 

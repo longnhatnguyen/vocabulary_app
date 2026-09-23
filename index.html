@@ -25,7 +25,7 @@
     <section class="card">
       <h1>📚 Ứng dụng học từ vựng</h1>
       <p class="muted">
-        Import Excel → chọn cột hiển thị → chọn nội dung kiểm tra →
+        Import Excel → lưu thành sổ tay → chọn sổ để học → chọn nội dung kiểm tra →
         lọc theo tiến độ → trộn từ → làm bài → chấm điểm
       </p>
 
@@ -56,6 +56,52 @@
         </span>
 
         <span id="syncStatus" class="sync-status"></span>
+      </div>
+
+      <div class="notebook-box">
+        <div class="notebook-title">
+          <div>
+            <h3>📒 Sổ tay từ vựng</h3>
+            <div class="notebook-help">
+              Import Excel rồi lưu thành một sổ tay. Lần sau chỉ cần chọn sổ để học, không cần upload lại.
+            </div>
+          </div>
+        </div>
+
+        <div class="notebook-controls">
+          <div class="notebook-field notebook-select-field">
+            <label for="notebookSelect">Chọn sổ để học</label>
+            <select id="notebookSelect">
+              <option value="">— Chọn sổ tay —</option>
+            </select>
+          </div>
+
+          <div class="notebook-field notebook-name-field">
+            <label for="notebookName">Tên sổ tay</label>
+            <input
+              type="text"
+              id="notebookName"
+              maxlength="80"
+              placeholder="Ví dụ: HSK 1 - Bài 1"
+            >
+          </div>
+
+          <div class="notebook-actions">
+            <button id="saveNotebookBtn" type="button" class="success">
+              💾 Lưu sổ
+            </button>
+            <button id="newNotebookBtn" type="button" class="secondary">
+              ➕ Tạo sổ mới
+            </button>
+            <button id="deleteNotebookBtn" type="button" class="danger">
+              🗑️ Xóa sổ
+            </button>
+          </div>
+        </div>
+
+        <div id="notebookStatus" class="notebook-status">
+          Chưa chọn sổ tay.
+        </div>
       </div>
 
       <div class="settings-grid">

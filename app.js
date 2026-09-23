@@ -19,6 +19,8 @@
   ];
 
   const STORAGE_VERSION = "v2";
+  const NOTEBOOK_VERSION = "v1";
+  const NOTEBOOK_CHUNK_SIZE = 250;
 
   let originalData = [];
   let currentData = [];
@@ -27,6 +29,8 @@
   let currentUser = null;
   let progressCache = {};
   let manualKnownCache = {};
+  let notebookCache = {};
+  let currentNotebookId = null;
   let isLoadingCloud = false;
 
   firebase.initializeApp(firebaseConfig);
@@ -45,7 +49,9 @@
       "loginBtn", "logoutBtn", "userChip", "userPhoto", "userName",
       "authStatus", "syncStatus", "showWord", "showPron", "showPos",
       "showMeaning", "quizColumn", "progressFilter", "vocabTable",
-      "scoreBox", "status"
+      "scoreBox", "status", "notebookSelect", "notebookName",
+      "saveNotebookBtn", "newNotebookBtn", "deleteNotebookBtn",
+      "notebookStatus"
     ].forEach(id => {
       els[id] = document.getElementById(id);
     });
@@ -57,6 +63,10 @@
     els.resetBtn.addEventListener("click", resetProgress);
     els.loginBtn.addEventListener("click", loginWithGoogle);
     els.logoutBtn.addEventListener("click", logoutGoogle);
+    els.notebookSelect.addEventListener("change", handleNotebookSelection);
+    els.saveNotebookBtn.addEventListener("click", saveCurrentNotebook);
+    els.newNotebookBtn.addEventListener("click", startNewNotebook);
+    els.deleteNotebookBtn.addEventListener("click", deleteCurrentNotebook);
 
     [els.showWord, els.showPron, els.showPos, els.showMeaning]
       .forEach(el => el.addEventListener("change", renderTable));
@@ -67,6 +77,8 @@
     auth.onAuthStateChanged(handleAuthStateChanged);
 
     loadLocalCache();
+    loadNotebookCache();
+    renderNotebookOptions();
     renderTable();
   }
 
@@ -84,6 +96,18 @@
 
   function manualStorageKey() {
     return `vocabulary_manual_known_${STORAGE_VERSION}_${storageScope()}`;
+  }
+
+  function notebookStorageKey() {
+    return `vocabulary_notebooks_${NOTEBOOK_VERSION}_${storageScope()}`;
+  }
+
+  function loadNotebookCache() {
+    notebookCache = readJson(notebookStorageKey());
+  }
+
+  function saveNotebookCache() {
+    localStorage.setItem(notebookStorageKey(), JSON.stringify(notebookCache));
   }
 
   function loadLocalCache() {
@@ -266,6 +290,7 @@
     // Cache local được tách riêng theo UID.
     // Đổi tài khoản => tự đổi vùng dữ liệu local.
     loadLocalCache();
+    loadNotebookCache();
 
     if (user) {
       els.loginBtn.classList.add("hidden");
@@ -286,6 +311,7 @@
         "Đã đăng nhập — tiến độ sẽ đồng bộ với Firestore.";
 
       await loadProgressFromCloud();
+      await loadNotebookList();
     } else {
       els.loginBtn.classList.remove("hidden");
       els.logoutBtn.classList.add("hidden");
@@ -295,6 +321,8 @@
         "Chưa đăng nhập — tiến độ đang lưu trên trình duyệt này.";
 
       setSyncStatus("");
+      currentNotebookId = null;
+      renderNotebookOptions();
       renderTable();
     }
   }
@@ -435,6 +463,476 @@
   }
 
   /* -----------------------------
+     NOTEBOOKS / SỔ TAY
+  ----------------------------- */
+
+  function createNotebookId() {
+    if (window.crypto?.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+
+    return `notebook_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function setNotebookStatus(message, type = "") {
+    els.notebookStatus.textContent = message || "";
+    els.notebookStatus.classList.remove("success-text", "error-text");
+
+    if (type === "success") {
+      els.notebookStatus.classList.add("success-text");
+    } else if (type === "error") {
+      els.notebookStatus.classList.add("error-text");
+    }
+  }
+
+  function getNotebookWordCount(notebook) {
+    if (Array.isArray(notebook?.words)) {
+      return notebook.words.length;
+    }
+
+    return Number(notebook?.wordCount || 0);
+  }
+
+  function renderNotebookOptions() {
+    const selectedId = currentNotebookId || "";
+    els.notebookSelect.replaceChildren();
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "— Chọn sổ tay —";
+    els.notebookSelect.appendChild(placeholder);
+
+    const notebooks = Object.values(notebookCache)
+      .filter(Boolean)
+      .sort((a, b) => {
+        const aTime = Number(a.updatedAtMs || 0);
+        const bTime = Number(b.updatedAtMs || 0);
+
+        if (aTime !== bTime) {
+          return bTime - aTime;
+        }
+
+        return String(a.name || "").localeCompare(String(b.name || ""), "vi");
+      });
+
+    for (const notebook of notebooks) {
+      const option = document.createElement("option");
+      option.value = notebook.id;
+      option.textContent =
+        `${notebook.name || "Sổ chưa đặt tên"} (${getNotebookWordCount(notebook)} từ)`;
+
+      els.notebookSelect.appendChild(option);
+    }
+
+    els.notebookSelect.value =
+      notebooks.some(item => item.id === selectedId)
+        ? selectedId
+        : "";
+  }
+
+  function updateCurrentNotebookUi() {
+    if (!currentNotebookId || !notebookCache[currentNotebookId]) {
+      return;
+    }
+
+    const notebook = notebookCache[currentNotebookId];
+    els.notebookName.value = notebook.name || "";
+    els.notebookSelect.value = currentNotebookId;
+
+    setNotebookStatus(
+      `Đang học: ${notebook.name} • ${getNotebookWordCount(notebook)} từ`,
+      "success"
+    );
+  }
+
+  function startNewNotebook() {
+    currentNotebookId = null;
+    els.notebookSelect.value = "";
+    els.notebookName.value = "";
+    setNotebookStatus(
+      "Đã chuyển sang sổ mới. Hãy import Excel, đặt tên rồi bấm “Lưu sổ”."
+    );
+  }
+
+  function filenameToNotebookName(filename) {
+    return String(filename || "")
+      .replace(/\.(xlsx|xls)$/i, "")
+      .trim();
+  }
+
+  async function handleNotebookSelection() {
+    const notebookId = els.notebookSelect.value;
+
+    if (!notebookId) {
+      currentNotebookId = null;
+      setNotebookStatus("Chưa chọn sổ tay.");
+      return;
+    }
+
+    await loadNotebookById(notebookId);
+  }
+
+  async function saveCurrentNotebook() {
+    if (!originalData.length) {
+      alert("Chưa có danh sách từ để lưu. Hãy import Excel hoặc chọn một sổ tay trước.");
+      return;
+    }
+
+    const name = els.notebookName.value.trim();
+
+    if (!name) {
+      alert("Hãy nhập tên sổ tay, ví dụ: HSK 1 - Bài 1.");
+      els.notebookName.focus();
+      return;
+    }
+
+    const notebookId = currentNotebookId || createNotebookId();
+    const now = Date.now();
+
+    setNotebookStatus("Đang lưu sổ tay...");
+
+    const notebook = {
+      id: notebookId,
+      name,
+      wordCount: originalData.length,
+      words: originalData.map(row => ({
+        "Từ": row["Từ"] ?? "",
+        "Phiên âm": row["Phiên âm"] ?? "",
+        "Loại từ": row["Loại từ"] ?? "",
+        "Nghĩa": row["Nghĩa"] ?? ""
+      })),
+      updatedAtMs: now
+    };
+
+    try {
+      if (currentUser) {
+        await saveNotebookToCloud(notebook);
+      }
+
+      notebookCache[notebookId] = notebook;
+      saveNotebookCache();
+
+      currentNotebookId = notebookId;
+      renderNotebookOptions();
+      updateCurrentNotebookUi();
+
+      setNotebookStatus(
+        `✅ Đã lưu “${name}” với ${originalData.length} từ.`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Save notebook error:", error);
+      setNotebookStatus("Không lưu được sổ tay.", "error");
+      alert("Không lưu được sổ tay: " + (error.message || error));
+    }
+  }
+
+  async function saveNotebookToCloud(notebook) {
+    if (!currentUser) {
+      return;
+    }
+
+    const notebookRef = db
+      .collection("users")
+      .doc(currentUser.uid)
+      .collection("notebooks")
+      .doc(notebook.id);
+
+    const oldChunks = await notebookRef
+      .collection("chunks")
+      .get();
+
+    let deleteBatch = db.batch();
+    let deleteCount = 0;
+
+    for (const docSnap of oldChunks.docs) {
+      deleteBatch.delete(docSnap.ref);
+      deleteCount++;
+
+      if (deleteCount === 400) {
+        await deleteBatch.commit();
+        deleteBatch = db.batch();
+        deleteCount = 0;
+      }
+    }
+
+    if (deleteCount > 0) {
+      await deleteBatch.commit();
+    }
+
+    const chunks = [];
+
+    for (let i = 0; i < notebook.words.length; i += NOTEBOOK_CHUNK_SIZE) {
+      chunks.push(
+        notebook.words.slice(i, i + NOTEBOOK_CHUNK_SIZE)
+      );
+    }
+
+    await notebookRef.set({
+      name: notebook.name,
+      wordCount: notebook.words.length,
+      chunkCount: chunks.length,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    let writeBatch = db.batch();
+    let writeCount = 0;
+
+    for (let index = 0; index < chunks.length; index++) {
+      const chunkId = String(index).padStart(5, "0");
+
+      const chunkRef = notebookRef
+        .collection("chunks")
+        .doc(chunkId);
+
+      writeBatch.set(chunkRef, {
+        index,
+        words: chunks[index]
+      });
+
+      writeCount++;
+
+      if (writeCount === 400) {
+        await writeBatch.commit();
+        writeBatch = db.batch();
+        writeCount = 0;
+      }
+    }
+
+    if (writeCount > 0) {
+      await writeBatch.commit();
+    }
+  }
+
+  async function loadNotebookList() {
+    if (!currentUser) {
+      loadNotebookCache();
+      renderNotebookOptions();
+      return;
+    }
+
+    try {
+      setNotebookStatus("Đang tải danh sách sổ tay...");
+
+      const snapshot = await db
+        .collection("users")
+        .doc(currentUser.uid)
+        .collection("notebooks")
+        .get();
+
+      const cloudMeta = {};
+
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+
+        cloudMeta[docSnap.id] = {
+          ...(notebookCache[docSnap.id] || {}),
+          id: docSnap.id,
+          name: data.name || "Sổ chưa đặt tên",
+          wordCount: Number(data.wordCount || 0),
+          updatedAtMs: data.updatedAt?.toMillis?.() || Date.now()
+        };
+      });
+
+      // Firestore là danh sách sổ chính khi đã đăng nhập.
+      notebookCache = cloudMeta;
+      saveNotebookCache();
+      renderNotebookOptions();
+
+      if (Object.keys(notebookCache).length) {
+        setNotebookStatus(
+          `Đã tải ${Object.keys(notebookCache).length} sổ tay từ Firestore.`,
+          "success"
+        );
+      } else {
+        setNotebookStatus(
+          "Chưa có sổ tay. Hãy import Excel rồi lưu sổ đầu tiên."
+        );
+      }
+    } catch (error) {
+      console.error("Load notebook list error:", error);
+
+      loadNotebookCache();
+      renderNotebookOptions();
+
+      setNotebookStatus(
+        "Không tải được danh sách sổ từ cloud, đang dùng dữ liệu lưu trên trình duyệt.",
+        "error"
+      );
+    }
+  }
+
+  async function loadNotebookById(notebookId) {
+    setNotebookStatus("Đang mở sổ tay...");
+
+    try {
+      let notebook = notebookCache[notebookId] || null;
+
+      if (currentUser) {
+        const notebookRef = db
+          .collection("users")
+          .doc(currentUser.uid)
+          .collection("notebooks")
+          .doc(notebookId);
+
+        const [metaSnap, chunksSnap] = await Promise.all([
+          notebookRef.get(),
+          notebookRef.collection("chunks").get()
+        ]);
+
+        if (!metaSnap.exists) {
+          throw new Error("Không tìm thấy sổ tay trên Firestore.");
+        }
+
+        const meta = metaSnap.data();
+        const chunks = chunksSnap.docs
+          .map(docSnap => docSnap.data())
+          .sort((a, b) => Number(a.index || 0) - Number(b.index || 0));
+
+        notebook = {
+          id: notebookId,
+          name: meta.name || "Sổ chưa đặt tên",
+          wordCount: Number(meta.wordCount || 0),
+          words: chunks.flatMap(chunk => Array.isArray(chunk.words) ? chunk.words : []),
+          updatedAtMs: meta.updatedAt?.toMillis?.() || Date.now()
+        };
+
+        notebookCache[notebookId] = notebook;
+        saveNotebookCache();
+      }
+
+      if (!notebook || !Array.isArray(notebook.words)) {
+        throw new Error("Sổ tay chưa có dữ liệu từ vựng.");
+      }
+
+      originalData = notebook.words.map((row, index) => ({
+        id: index + 1,
+        "Từ": row["Từ"] ?? "",
+        "Phiên âm": row["Phiên âm"] ?? "",
+        "Loại từ": row["Loại từ"] ?? "",
+        "Nghĩa": row["Nghĩa"] ?? ""
+      }));
+
+      currentData = originalData.map(row => ({ ...row }));
+      rebuildRowMap();
+
+      currentNotebookId = notebookId;
+      renderNotebookOptions();
+      updateCurrentNotebookUi();
+      renderTable();
+
+      setNotebookStatus(
+        `📖 Đang học “${notebook.name}” • ${originalData.length} từ`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Load notebook error:", error);
+
+      const cached = notebookCache[notebookId];
+
+      if (cached?.words?.length) {
+        originalData = cached.words.map((row, index) => ({
+          id: index + 1,
+          "Từ": row["Từ"] ?? "",
+          "Phiên âm": row["Phiên âm"] ?? "",
+          "Loại từ": row["Loại từ"] ?? "",
+          "Nghĩa": row["Nghĩa"] ?? ""
+        }));
+
+        currentData = originalData.map(row => ({ ...row }));
+        rebuildRowMap();
+
+        currentNotebookId = notebookId;
+        updateCurrentNotebookUi();
+        renderTable();
+
+        setNotebookStatus(
+          "Không lấy được cloud, đang mở bản sổ đã lưu trên trình duyệt.",
+          "error"
+        );
+
+        return;
+      }
+
+      setNotebookStatus("Không mở được sổ tay.", "error");
+      alert("Không mở được sổ tay: " + (error.message || error));
+    }
+  }
+
+  async function deleteCurrentNotebook() {
+    const notebookId = currentNotebookId || els.notebookSelect.value;
+
+    if (!notebookId || !notebookCache[notebookId]) {
+      alert("Hãy chọn sổ tay cần xóa.");
+      return;
+    }
+
+    const notebook = notebookCache[notebookId];
+
+    if (!confirm(`Xóa sổ “${notebook.name}”? Tiến độ học từ vẫn được giữ lại.`)) {
+      return;
+    }
+
+    try {
+      if (currentUser) {
+        await deleteNotebookFromCloud(notebookId);
+      }
+
+      delete notebookCache[notebookId];
+      saveNotebookCache();
+
+      if (currentNotebookId === notebookId) {
+        currentNotebookId = null;
+        originalData = [];
+        currentData = [];
+        rowMap = new Map();
+        els.notebookName.value = "";
+      }
+
+      renderNotebookOptions();
+      renderTable();
+
+      setNotebookStatus(`Đã xóa sổ “${notebook.name}”.`, "success");
+    } catch (error) {
+      console.error("Delete notebook error:", error);
+      setNotebookStatus("Không xóa được sổ tay.", "error");
+      alert("Không xóa được sổ tay: " + (error.message || error));
+    }
+  }
+
+  async function deleteNotebookFromCloud(notebookId) {
+    const notebookRef = db
+      .collection("users")
+      .doc(currentUser.uid)
+      .collection("notebooks")
+      .doc(notebookId);
+
+    const chunks = await notebookRef
+      .collection("chunks")
+      .get();
+
+    let batch = db.batch();
+    let count = 0;
+
+    for (const docSnap of chunks.docs) {
+      batch.delete(docSnap.ref);
+      count++;
+
+      if (count === 400) {
+        await batch.commit();
+        batch = db.batch();
+        count = 0;
+      }
+    }
+
+    if (count > 0) {
+      await batch.commit();
+    }
+
+    await notebookRef.delete();
+  }
+
+  /* -----------------------------
      EXCEL
   ----------------------------- */
 
@@ -483,6 +981,18 @@
 
         currentData = originalData.map(row => ({ ...row }));
         rebuildRowMap();
+
+        // Import file mới => chuẩn bị tạo một sổ mới,
+        // tránh ghi đè nhầm lên sổ đang chọn.
+        currentNotebookId = null;
+        els.notebookSelect.value = "";
+
+        const suggestedName = filenameToNotebookName(file.name);
+        els.notebookName.value = suggestedName || "Sổ mới";
+
+        setNotebookStatus(
+          `Đã import ${originalData.length} từ. Đặt tên sổ rồi bấm “Lưu sổ”.`
+        );
 
         renderTable();
 

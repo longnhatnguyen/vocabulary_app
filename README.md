@@ -1,14 +1,53 @@
-# Vocabulary App - GitHub Pages
+# Vocabulary App - Bản có Sổ tay
 
-Bản này đã tách thành 3 file:
+Bộ mã gồm:
 
-- `index.html`: cấu trúc giao diện
-- `styles.css`: toàn bộ CSS
-- `app.js`: logic ứng dụng + Firebase
+- `index.html`
+- `styles.css`
+- `app.js`
 
-## Cách đưa lên GitHub Pages
+## Chức năng Sổ tay mới
 
-Đặt cả 3 file ở cùng một thư mục trong repository:
+1. Người dùng import Excel.
+2. App tự gợi ý tên sổ từ tên file.
+3. Người dùng nhập/sửa tên, ví dụ `HSK 1 - Bài 1`.
+4. Bấm `Lưu sổ`.
+5. Lần sau mở app chỉ cần chọn sổ ở `Chọn sổ để học`, không phải upload Excel lại.
+
+### Khi đã đăng nhập Google
+
+Sổ tay được lưu lên Firestore:
+
+```text
+users/{uid}/notebooks/{notebookId}
+users/{uid}/notebooks/{notebookId}/chunks/{chunkId}
+```
+
+Từ vựng được chia thành các chunk để:
+- không vượt giới hạn 1 MiB/document của Firestore;
+- giảm số document reads so với mô hình mỗi từ = 1 document.
+
+### Khi chưa đăng nhập
+
+Sổ tay vẫn có thể lưu trong `localStorage` của trình duyệt.
+
+## Tiến độ học
+
+Tiến độ từ vẫn được lưu riêng như trước:
+
+```text
+users/{uid}/vocabulary/{wordId}
+```
+
+Một từ là `Đã thuộc` nếu:
+- đánh dấu thủ công, hoặc
+- đã từng trả lời đúng.
+
+Khi chọn `Không kiểm tra`, trạng thái tổng hợp từ mọi loại bài kiểm tra.
+
+## Deploy GitHub Pages
+
+Đặt 3 file này cùng cấp trong repo:
 
 ```text
 /
@@ -17,47 +56,4 @@ Bản này đã tách thành 3 file:
 └── app.js
 ```
 
-Sau đó commit + push như bình thường.
-
-## Logic "Đã thuộc"
-
-### Khi đang chọn một nội dung kiểm tra
-Ví dụ chọn `Nghĩa`:
-
-Một từ được xem là **Đã thuộc** nếu:
-- được đánh dấu thủ công, HOẶC
-- đã từng trả lời đúng `Nghĩa`.
-
-### Khi chọn "Không kiểm tra"
-
-Một từ được xem là **Đã thuộc** nếu:
-- được đánh dấu thủ công, HOẶC
-- đã từng trả lời đúng BẤT KỲ nội dung nào.
-
-Vì vậy trạng thái không bị mất khi chuyển từ `Nghĩa` sang `Không kiểm tra`.
-
-Checkbox `Đã thuộc` cũng luôn phản ánh cùng trạng thái với cột `Trạng thái`.
-
-## Dữ liệu nhiều tài khoản
-
-Local cache được tách theo Firebase UID:
-
-```text
-vocabulary_progress_v2_<uid>
-vocabulary_manual_known_v2_<uid>
-```
-
-Do đó nếu tài khoản Google A đăng xuất rồi tài khoản B đăng nhập trên cùng trình duyệt,
-hai tài khoản không dùng chung local progress.
-
-Firestore vẫn lưu theo:
-
-```text
-users/{uid}/vocabulary/{wordId}
-```
-
-## Lưu ý về Firebase API key
-
-Firebase Web API key vẫn phải xuất hiện trong JavaScript phía client.
-GitHub Secret Scanning có thể cảnh báo Google API Key; đây không phải mật khẩu Firestore.
-Quyền truy cập dữ liệu phải được bảo vệ bằng Firebase Authentication + Firestore Rules.
+Commit + push lên GitHub là được.
