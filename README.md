@@ -1,10 +1,13 @@
-# Vocabulary App - Compact UI
+# Vocabulary App - Top Right Auth
 
-Build: 20260924-compact
+Build: 20260924-topauth
 
-Upload cả 3 file lên GitHub Pages:
+Upload 3 file:
+
 - index.html
-- styles.compact.css
-- app.compact.js
+- styles.topauth.css
+- app.topauth.js
 
-Điểm mới: phần đầu gọn hơn nhiều và thanh Chấm điểm cố định ở đáy màn hình.
+Thay đổi:
+- Cụm đăng nhập / avatar / đăng xuất / trạng thái đồng bộ được đưa lên góc trên cùng bên phải.
+- Giữ nguyên layout compact + cân bằng cỡ chữ.

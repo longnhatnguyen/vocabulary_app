@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ứng dụng học từ vựng</title>
 
-  <link rel="stylesheet" href="styles.compact.css?v=20260924-compact">
+  <link rel="stylesheet" href="styles.topauth.css?v=20260924-topauth">
 
   <!-- Đọc file Excel -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -16,7 +16,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
   <!-- Code của ứng dụng -->
-  <script defer src="app.compact.js?v=20260924-compact"></script>
+  <script defer src="app.topauth.js?v=20260924-topauth"></script>
 </head>
 
 <body>
@@ -24,11 +24,36 @@
 
     <section class="card">
       <h1>📚 Ứng dụng học từ vựng</h1>
-      <div class="title-row">
-        <p class="muted">
-          Import Excel → lưu thành sổ tay → chọn sổ để học → kiểm tra → chấm điểm
-        </p>
-        <span id="buildBadge" class="build-badge">Build mới</span>
+      <div class="top-header">
+        <div class="header-main">
+          <div class="title-wrap">
+            <div class="title-row">
+              <p class="muted">
+                Import Excel → lưu thành sổ tay → chọn sổ để học → kiểm tra → chấm điểm
+              </p>
+              <span id="buildBadge" class="build-badge">Build mới</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-auth-slot">
+          <div class="auth-box auth-floating">
+            <button id="loginBtn" type="button">🔐 Đăng nhập Google</button>
+
+            <div id="userChip" class="user-chip">
+              <img id="userPhoto" alt="Ảnh đại diện">
+              <span id="userName"></span>
+            </div>
+
+            <button id="logoutBtn" type="button" class="secondary hidden">Đăng xuất</button>
+
+            <span id="authStatus" class="auth-status">
+              Chưa đăng nhập.
+            </span>
+
+            <span id="syncStatus" class="sync-status"></span>
+          </div>
+        </div>
       </div>
 
       <div class="toolbar">
