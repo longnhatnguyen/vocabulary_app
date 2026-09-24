@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ứng dụng học từ vựng</title>
 
-  <link rel="stylesheet" href="styles.v2.css?v=20260923-2">
+  <link rel="stylesheet" href="styles.compact.css?v=20260924-compact">
 
   <!-- Đọc file Excel -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -16,7 +16,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
   <!-- Code của ứng dụng -->
-  <script defer src="app.v2.js?v=20260923-2"></script>
+  <script defer src="app.compact.js?v=20260924-compact"></script>
 </head>
 
 <body>
@@ -39,7 +39,6 @@
 
         <button id="shuffleBtn" type="button">🔀 Trộn từ</button>
         <button id="restoreBtn" type="button" class="secondary">↩️ Thứ tự gốc</button>
-        <button id="gradeBtn" type="button" class="success">✅ Chấm điểm</button>
         <button id="resetBtn" type="button" class="danger">🗑️ Xóa tiến độ</button>
       </div>
 
@@ -54,98 +53,50 @@
         <button id="logoutBtn" type="button" class="secondary hidden">Đăng xuất</button>
 
         <span id="authStatus" class="auth-status">
-          Chưa đăng nhập — tiến độ đang lưu trên trình duyệt này.
+          Chưa đăng nhập.
         </span>
 
         <span id="syncStatus" class="sync-status"></span>
       </div>
 
-      <section class="notebook-card">
-        <div class="notebook-card-head">
-          <div>
-            <div class="eyebrow">THƯ VIỆN CỦA BẠN</div>
-            <h2 class="notebook-heading">📒 Sổ tay từ vựng</h2>
-            <p class="notebook-subtitle">
-              Upload Excel một lần, lưu thành sổ và mở lại trên mọi thiết bị sau khi đăng nhập.
-            </p>
+      <section class="notebook-card compact-notebook">
+        <div class="compact-notebook-row">
+          <div class="compact-book-title" title="Sổ tay từ vựng">
+            <span>📒</span><strong>Sổ tay</strong>
           </div>
 
-          <div class="active-notebook-pill">
+          <select id="notebookSelect" class="compact-control" title="Chọn sổ tay">
+            <option value="">— Chọn sổ tay —</option>
+          </select>
+
+          <input class="compact-control notebook-name-input" type="text" id="notebookName"
+                 maxlength="80" placeholder="Tên sổ tay" title="Tên sổ tay">
+
+          <div class="compact-actions">
+            <button id="saveNotebookBtn" type="button" class="btn-notebook-save">💾 Lưu</button>
+            <button id="newNotebookBtn" type="button" class="btn-soft compact-icon-btn" title="Tạo sổ mới">＋</button>
+            <button id="deleteNotebookBtn" type="button" class="btn-soft danger-soft compact-icon-btn" title="Xóa sổ">🗑</button>
+          </div>
+
+          <div class="active-notebook-pill compact-pill">
             <span class="dot"></span>
             <span id="activeNotebookLabel">Chưa chọn sổ</span>
           </div>
         </div>
-
-        <div class="notebook-layout">
-          <div class="notebook-panel primary-panel">
-            <label class="field-label" for="notebookSelect">Sổ đang học</label>
-
-            <div class="select-with-icon">
-              <span class="field-icon">📚</span>
-              <select id="notebookSelect">
-                <option value="">— Chọn một sổ tay —</option>
-              </select>
-            </div>
-
-            <div class="panel-hint">
-              Chọn sổ đã lưu để tải lại toàn bộ danh sách từ.
-            </div>
-          </div>
-
-          <div class="notebook-panel">
-            <label class="field-label" for="notebookName">Tên sổ tay</label>
-
-            <input
-              class="notebook-name-input"
-              type="text"
-              id="notebookName"
-              maxlength="80"
-              placeholder="Ví dụ: HSK 1 - Bài 1"
-            >
-
-            <div class="panel-hint">
-              Sau khi import Excel, đặt tên rồi bấm <b>Lưu sổ</b>.
-            </div>
-          </div>
-        </div>
-
-        <div class="notebook-footer">
-          <div class="notebook-actions">
-            <button id="saveNotebookBtn" type="button" class="btn-notebook-save">
-              <span>💾</span>
-              <span>Lưu sổ</span>
-            </button>
-
-            <button id="newNotebookBtn" type="button" class="btn-soft">
-              <span>＋</span>
-              <span>Sổ mới</span>
-            </button>
-
-            <button id="deleteNotebookBtn" type="button" class="btn-soft danger-soft">
-              <span>🗑</span>
-              <span>Xóa sổ</span>
-            </button>
-          </div>
-
-          <div id="notebookStatus" class="notebook-status">
-            Chưa chọn sổ tay.
-          </div>
-        </div>
+        <div id="notebookStatus" class="notebook-status compact-notebook-status"></div>
       </section>
 
-      <div class="settings-grid">
-        <div class="setting-box">
-          <h3>👁️ Ẩn / Hiện cột</h3>
-          <div class="options">
-            <label><input type="checkbox" id="showWord" checked> Từ</label>
-            <label><input type="checkbox" id="showPron" checked> Phiên âm</label>
-            <label><input type="checkbox" id="showPos" checked> Loại từ</label>
-            <label><input type="checkbox" id="showMeaning" checked> Nghĩa</label>
-          </div>
+      <div class="compact-settings">
+        <div class="compact-setting columns-setting">
+          <span class="compact-label">👁 Cột</span>
+          <label><input type="checkbox" id="showWord" checked> Từ</label>
+          <label><input type="checkbox" id="showPron" checked> Phiên âm</label>
+          <label><input type="checkbox" id="showPos" checked> Loại từ</label>
+          <label><input type="checkbox" id="showMeaning" checked> Nghĩa</label>
         </div>
 
-        <div class="setting-box">
-          <h3>📝 Muốn kiểm tra gì?</h3>
+        <div class="compact-setting">
+          <span class="compact-label">📝 Kiểm tra</span>
           <select id="quizColumn">
             <option value="">Không kiểm tra</option>
             <option value="Từ">Từ</option>
@@ -155,8 +106,8 @@
           </select>
         </div>
 
-        <div class="setting-box">
-          <h3>🔎 Lọc danh sách</h3>
+        <div class="compact-setting">
+          <span class="compact-label">🔎 Lọc</span>
           <select id="progressFilter">
             <option value="all">Toàn bộ</option>
             <option value="known">Đã thuộc</option>
@@ -165,11 +116,7 @@
         </div>
       </div>
 
-      <div class="note">
-        Một từ được xem là <b>Đã thuộc</b> khi bạn đánh dấu thủ công
-        <b>hoặc</b> đã từng trả lời đúng. Khi chọn <b>Không kiểm tra</b>,
-        trạng thái sẽ tổng hợp từ tất cả các lần kiểm tra trước đó.
-      </div>
+      <div class="micro-help">Đã thuộc = đánh dấu thủ công hoặc từng trả lời đúng.</div>
 
       <div id="status" class="status">Chưa có dữ liệu.</div>
     </section>
@@ -186,6 +133,17 @@
 
       <div id="scoreBox" class="score-box"></div>
     </section>
+
+    <div id="stickyGradeBar" class="sticky-grade-bar">
+      <div class="sticky-grade-info">
+        <strong id="stickyQuizLabel">Chọn nội dung kiểm tra</strong>
+        <span id="stickyCountLabel"></span>
+      </div>
+      <div class="sticky-grade-actions">
+        <button id="stickyShuffleBtn" type="button" class="sticky-secondary">🔀 Trộn</button>
+        <button id="stickyGradeBtn" type="button" class="sticky-primary">✅ Chấm điểm</button>
+      </div>
+    </div>
 
   </main>
 </body>
