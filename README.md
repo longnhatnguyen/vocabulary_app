@@ -1,13 +1,13 @@
-# Vocabulary App - Top Right Auth
+# Vocabulary App - Top Auth v2
 
-Build: 20260924-topauth
+Build: 20260924-topauth-v2
 
-Upload 3 file:
-
+Upload:
 - index.html
-- styles.topauth.css
-- app.topauth.js
+- styles.topauth.v2.css
+- app.topauth.v2.js
 
-Thay đổi:
-- Cụm đăng nhập / avatar / đăng xuất / trạng thái đồng bộ được đưa lên góc trên cùng bên phải.
-- Giữ nguyên layout compact + cân bằng cỡ chữ.
+Đã sửa:
+- Chỉ còn 1 chỗ đăng nhập.
+- Đăng nhập nằm góc phải phía trên.
+- Tag Build nằm ngay cạnh tiêu đề.
