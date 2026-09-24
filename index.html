@@ -5,128 +5,210 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ứng dụng học từ vựng</title>
 
-  <link rel="stylesheet" href="styles.topauth.v2.css?v=20260924-topauth-v2">
+  <link rel="stylesheet" href="styles.modern.css?v=20260924-modern">
 
-  <!-- Đọc file Excel -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-  <!-- Firebase -->
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-
-  <!-- Code của ứng dụng -->
-  <script defer src="app.topauth.v2.js?v=20260924-topauth-v2"></script>
+  <script defer src="app.modern.js?v=20260924-modern"></script>
 </head>
 
 <body>
-  <main class="container">
+  <!-- SVG icon sprite: không phụ thuộc icon library bên ngoài -->
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-book" viewBox="0 0 24 24">
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/>
+      <path d="M4 5.5v16"/>
+    </symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24">
+      <path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>
+    </symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24">
+      <path d="M16 3h5v5"/><path d="m21 3-7 7"/><path d="M4 7h3l10 10h4"/>
+      <path d="M16 16h5v5"/><path d="m21 21-5-5"/><path d="M4 17h3l3-3"/>
+    </symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24">
+      <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 15H6L5 6"/>
+      <path d="M10 11v5M14 11v5"/>
+    </symbol>
+    <symbol id="i-save" viewBox="0 0 24 24">
+      <path d="M5 3h12l2 2v16H5z"/><path d="M8 3v6h8V3"/><path d="M8 14h8v7"/>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14"/>
+    </symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24">
+      <path d="M4 5h16l-6 7v5l-4 2v-7z"/>
+    </symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/>
+      <circle cx="12" cy="12" r="2.5"/>
+    </symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24">
+      <path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/><path d="m14 6.5 3.5 3.5"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <path d="m5 12 4 4L19 6"/>
+    </symbol>
+    <symbol id="i-log-in" viewBox="0 0 24 24">
+      <path d="M10 5H5v14h5"/><path d="M13 8l4 4-4 4"/><path d="M8 12h9"/>
+    </symbol>
+    <symbol id="i-log-out" viewBox="0 0 24 24">
+      <path d="M14 5h5v14h-5"/><path d="m11 8-4 4 4 4"/><path d="M7 12h10"/>
+    </symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24">
+      <path d="M6 18h12a4 4 0 0 0 .7-7.9A7 7 0 0 0 5.4 8.5 4.8 4.8 0 0 0 6 18z"/>
+    </symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24">
+      <path d="m7 9 5 5 5-5"/>
+    </symbol>
+  </svg>
 
-    <section class="card">
-      <div class="hero-row">
-        <div class="hero-left">
-          <div class="app-title-line">
-            <h1>📚 Ứng dụng học từ vựng</h1>
-            <span id="buildBadge" class="build-badge">Build mới</span>
+  <main class="app-shell">
+    <section class="workspace-card">
+
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg><use href="#i-book"></use></svg>
           </div>
-
-          <p class="muted hero-subtitle">
-            Import Excel → lưu thành sổ tay → chọn sổ để học → kiểm tra → chấm điểm
-          </p>
-        </div>
-
-        <div class="header-auth-slot">
-          <div class="auth-box auth-floating">
-            <button id="loginBtn" type="button">🔐 Đăng nhập Google</button>
-
-            <div id="userChip" class="user-chip">
-              <img id="userPhoto" alt="Ảnh đại diện">
-              <span id="userName"></span>
+          <div class="brand-copy">
+            <div class="brand-title-row">
+              <h1>Học từ vựng</h1>
+              <span id="buildBadge" class="build-tag">Build</span>
             </div>
-
-            <button id="logoutBtn" type="button" class="secondary hidden">Đăng xuất</button>
-
-            <span id="authStatus" class="auth-status">Chưa đăng nhập.</span>
-            <span id="syncStatus" class="sync-status"></span>
           </div>
         </div>
-      </div>
 
-      <div class="toolbar">
-        <label class="file-label">
-          📂 Chọn file Excel
+        <div class="account-area">
+          <button id="loginBtn" type="button" class="btn btn-outline">
+            <svg><use href="#i-log-in"></use></svg>
+            <span>Đăng nhập</span>
+          </button>
+
+          <div id="userChip" class="user-chip">
+            <img id="userPhoto" alt="Avatar">
+            <span id="userName"></span>
+          </div>
+
+          <button id="logoutBtn" type="button" class="icon-button hidden" title="Đăng xuất" aria-label="Đăng xuất">
+            <svg><use href="#i-log-out"></use></svg>
+          </button>
+
+          <span id="authStatus" class="visually-hidden">Chưa đăng nhập.</span>
+          <span id="syncStatus" class="sync-indicator"></span>
+        </div>
+      </header>
+
+      <div class="primary-bar">
+        <label class="btn btn-primary file-button">
+          <svg><use href="#i-upload"></use></svg>
+          <span>Import Excel</span>
           <input type="file" id="fileInput" accept=".xlsx,.xls">
         </label>
 
-        <button id="shuffleBtn" type="button">🔀 Trộn từ</button>
-        <button id="restoreBtn" type="button" class="secondary">↩️ Thứ tự gốc</button>
-        <button id="resetBtn" type="button" class="danger">🗑️ Xóa tiến độ</button>
-      </div>
-
-      <section class="notebook-card compact-notebook">
-        <div class="compact-notebook-row">
-          <div class="compact-book-title" title="Sổ tay từ vựng">
-            <span>📒</span><strong>Sổ tay</strong>
+        <div class="notebook-group">
+          <div class="select-shell notebook-select-shell">
+            <select id="notebookSelect" title="Chọn sổ tay">
+              <option value="">Chọn sổ tay</option>
+            </select>
+            <svg><use href="#i-chevron"></use></svg>
           </div>
 
-          <select id="notebookSelect" class="compact-control" title="Chọn sổ tay">
-            <option value="">— Chọn sổ tay —</option>
-          </select>
+          <input
+            id="notebookName"
+            class="notebook-name"
+            type="text"
+            maxlength="80"
+            placeholder="Tên sổ tay"
+            title="Tên sổ tay"
+          >
 
-          <input class="compact-control notebook-name-input" type="text" id="notebookName"
-                 maxlength="80" placeholder="Tên sổ tay" title="Tên sổ tay">
+          <button id="saveNotebookBtn" type="button" class="btn btn-accent" title="Lưu sổ tay">
+            <svg><use href="#i-save"></use></svg>
+            <span>Lưu</span>
+          </button>
 
-          <div class="compact-actions">
-            <button id="saveNotebookBtn" type="button" class="btn-notebook-save">💾 Lưu</button>
-            <button id="newNotebookBtn" type="button" class="btn-soft compact-icon-btn" title="Tạo sổ mới">＋</button>
-            <button id="deleteNotebookBtn" type="button" class="btn-soft danger-soft compact-icon-btn" title="Xóa sổ">🗑</button>
-          </div>
+          <button id="newNotebookBtn" type="button" class="icon-button" title="Tạo sổ mới" aria-label="Tạo sổ mới">
+            <svg><use href="#i-plus"></use></svg>
+          </button>
 
-          <div class="active-notebook-pill compact-pill">
-            <span class="dot"></span>
-            <span id="activeNotebookLabel">Chưa chọn sổ</span>
-          </div>
-        </div>
-        <div id="notebookStatus" class="notebook-status compact-notebook-status"></div>
-      </section>
-
-      <div class="compact-settings">
-        <div class="compact-setting columns-setting">
-          <span class="compact-label">👁 Cột</span>
-          <label><input type="checkbox" id="showWord" checked> Từ</label>
-          <label><input type="checkbox" id="showPron" checked> Phiên âm</label>
-          <label><input type="checkbox" id="showPos" checked> Loại từ</label>
-          <label><input type="checkbox" id="showMeaning" checked> Nghĩa</label>
+          <button id="deleteNotebookBtn" type="button" class="icon-button danger-icon" title="Xóa sổ" aria-label="Xóa sổ">
+            <svg><use href="#i-trash"></use></svg>
+          </button>
         </div>
 
-        <div class="compact-setting">
-          <span class="compact-label">📝 Kiểm tra</span>
-          <select id="quizColumn">
-            <option value="">Không kiểm tra</option>
-            <option value="Từ">Từ</option>
-            <option value="Phiên âm">Phiên âm</option>
-            <option value="Loại từ">Loại từ</option>
-            <option value="Nghĩa">Nghĩa</option>
-          </select>
-        </div>
-
-        <div class="compact-setting">
-          <span class="compact-label">🔎 Lọc</span>
-          <select id="progressFilter">
-            <option value="all">Toàn bộ</option>
-            <option value="known">Đã thuộc</option>
-            <option value="unknown">Chưa thuộc</option>
-          </select>
+        <div class="quick-actions">
+          <button id="shuffleBtn" type="button" class="icon-button" title="Trộn từ" aria-label="Trộn từ">
+            <svg><use href="#i-shuffle"></use></svg>
+          </button>
+          <button id="restoreBtn" type="button" class="icon-button" title="Khôi phục thứ tự" aria-label="Khôi phục thứ tự">
+            <svg><use href="#i-rotate"></use></svg>
+          </button>
+          <button id="resetBtn" type="button" class="icon-button danger-icon" title="Xóa toàn bộ tiến độ" aria-label="Xóa tiến độ">
+            <svg><use href="#i-trash"></use></svg>
+          </button>
         </div>
       </div>
 
-      <div class="micro-help">Đã thuộc = đánh dấu thủ công hoặc từng trả lời đúng.</div>
+      <div class="secondary-bar">
+        <div class="column-controls">
+          <div class="control-label">
+            <svg><use href="#i-eye"></use></svg>
+            <span>Hiển thị</span>
+          </div>
 
-      <div id="status" class="status">Chưa có dữ liệu.</div>
-    </section>
+          <label class="check-chip"><input type="checkbox" id="showWord" checked><span>Từ</span></label>
+          <label class="check-chip"><input type="checkbox" id="showPron" checked><span>Phiên âm</span></label>
+          <label class="check-chip"><input type="checkbox" id="showPos" checked><span>Loại từ</span></label>
+          <label class="check-chip"><input type="checkbox" id="showMeaning" checked><span>Nghĩa</span></label>
+        </div>
 
-    <section class="card">
-      <h2>Danh sách từ</h2>
+        <div class="select-control">
+          <div class="control-label">
+            <svg><use href="#i-pencil"></use></svg>
+            <span>Kiểm tra</span>
+          </div>
+          <div class="select-shell compact-select">
+            <select id="quizColumn">
+              <option value="">Không kiểm tra</option>
+              <option value="Từ">Từ</option>
+              <option value="Phiên âm">Phiên âm</option>
+              <option value="Loại từ">Loại từ</option>
+              <option value="Nghĩa">Nghĩa</option>
+            </select>
+            <svg><use href="#i-chevron"></use></svg>
+          </div>
+        </div>
+
+        <div class="select-control">
+          <div class="control-label">
+            <svg><use href="#i-filter"></use></svg>
+            <span>Lọc</span>
+          </div>
+          <div class="select-shell compact-select">
+            <select id="progressFilter">
+              <option value="all">Toàn bộ</option>
+              <option value="known">Đã thuộc</option>
+              <option value="unknown">Chưa thuộc</option>
+            </select>
+            <svg><use href="#i-chevron"></use></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Giữ các ID cho logic JS, nhưng không chiếm không gian UI -->
+      <span id="activeNotebookLabel" class="visually-hidden">Chưa chọn sổ</span>
+      <span id="notebookStatus" class="visually-hidden"></span>
+
+      <div class="section-heading">
+        <h2>Danh sách từ</h2>
+        <span id="status" class="table-meta">Chưa có dữ liệu.</span>
+      </div>
 
       <div class="table-wrap">
         <table id="vocabTable">
@@ -138,17 +220,23 @@
       <div id="scoreBox" class="score-box"></div>
     </section>
 
-    <div id="stickyGradeBar" class="sticky-grade-bar">
-      <div class="sticky-grade-info">
-        <strong id="stickyQuizLabel">Chọn nội dung kiểm tra</strong>
-        <span id="stickyCountLabel"></span>
+    <div id="stickyGradeBar" class="grade-dock">
+      <div class="grade-context">
+        <span id="stickyQuizLabel">Chọn nội dung kiểm tra</span>
+        <small id="stickyCountLabel"></small>
       </div>
-      <div class="sticky-grade-actions">
-        <button id="stickyShuffleBtn" type="button" class="sticky-secondary">🔀 Trộn</button>
-        <button id="stickyGradeBtn" type="button" class="sticky-primary">✅ Chấm điểm</button>
+
+      <div class="grade-actions">
+        <button id="stickyShuffleBtn" type="button" class="icon-button dock-icon" title="Trộn từ">
+          <svg><use href="#i-shuffle"></use></svg>
+        </button>
+
+        <button id="stickyGradeBtn" type="button" class="btn btn-grade">
+          <svg><use href="#i-check"></use></svg>
+          <span>Chấm điểm</span>
+        </button>
       </div>
     </div>
-
   </main>
 </body>
 </html>
