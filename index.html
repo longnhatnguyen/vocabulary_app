@@ -5,12 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ứng dụng học từ vựng</title>
 
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <link rel="stylesheet" href="styles.modern.css?v=20260924-modern">
 
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
   <script defer src="app.modern.js?v=20260924-modern"></script>
 </head>
 
@@ -189,13 +191,17 @@
             <span>Kiểm tra</span>
           </div>
           <div class="select-shell compact-select">
-            <select id="quizColumn">
+            <select id="quizColumn" class="native-select">
               <option value="">Không kiểm tra</option>
               <option value="Từ">Từ</option>
               <option value="Phiên âm">Phiên âm</option>
               <option value="Loại từ">Loại từ</option>
               <option value="Nghĩa">Nghĩa</option>
             </select>
+            <button id="quizColumnToggle" type="button" class="custom-select-toggle" aria-haspopup="listbox" aria-expanded="false">
+              <span id="quizColumnLabel">Không kiểm tra</span>
+            </button>
+            <div id="quizColumnMenu" class="custom-select-menu hidden" role="listbox"></div>
             <svg><use href="#i-chevron"></use></svg>
           </div>
         </div>
@@ -206,11 +212,16 @@
             <span>Lọc</span>
           </div>
           <div class="select-shell compact-select">
-            <select id="progressFilter">
+            <select id="progressFilter" class="native-select">
               <option value="all">Toàn bộ</option>
+              <option id="dueFilterOption" value="due" hidden>Cần ôn</option>
               <option value="known">Đã thuộc</option>
               <option value="unknown">Chưa thuộc</option>
             </select>
+            <button id="progressFilterToggle" type="button" class="custom-select-toggle" aria-haspopup="listbox" aria-expanded="false">
+              <span id="progressFilterLabel">Toàn bộ</span>
+            </button>
+            <div id="progressFilterMenu" class="custom-select-menu hidden" role="listbox"></div>
             <svg><use href="#i-chevron"></use></svg>
           </div>
         </div>
@@ -236,9 +247,19 @@
         <div id="flashcardEmpty" class="flashcard-empty">Hãy import hoặc chọn sổ tay để học flashcard.</div>
 
         <button id="flashcardCard" type="button" class="flashcard-card hidden" aria-label="Lật flashcard">
-          <span id="flashcardFaceLabel" class="flashcard-face-label">Mặt trước</span>
-          <strong id="flashcardFront" class="flashcard-front"></strong>
-          <div id="flashcardBack" class="flashcard-back hidden"></div>
+          <span class="swipe-hint swipe-hint-left">Chưa thuộc</span>
+          <span class="swipe-hint swipe-hint-right">Đã thuộc</span>
+          <span id="flashcardSwipeStatus" class="visually-hidden"></span>
+          <span class="flashcard-card-inner">
+            <span class="flashcard-face flashcard-face-front">
+              <span id="flashcardFaceLabel" class="flashcard-face-label">Mặt trước</span>
+              <strong id="flashcardFront" class="flashcard-front"></strong>
+            </span>
+            <span class="flashcard-face flashcard-face-back">
+              <span class="flashcard-face-label">Mặt sau</span>
+              <span id="flashcardBack" class="flashcard-back"></span>
+            </span>
+          </span>
         </button>
 
         <div class="flashcard-controls">
@@ -250,6 +271,15 @@
         <div class="flashcard-progress">
           <span id="flashcardCounter">0/0</span>
           <span id="flashcardKnownState"></span>
+        </div>
+
+        <div id="flashcardSrsPanel" class="flashcard-srs hidden">
+          <span id="flashcardSrsState">Chưa có lịch ôn</span>
+          <div class="flashcard-srs-actions">
+            <button id="flashcardHardBtn" type="button" class="btn btn-outline">Khó</button>
+            <button id="flashcardGoodBtn" type="button" class="btn btn-primary">Vừa</button>
+            <button id="flashcardEasyBtn" type="button" class="btn btn-accent">Dễ</button>
+          </div>
         </div>
 
         <div class="flashcard-actions">

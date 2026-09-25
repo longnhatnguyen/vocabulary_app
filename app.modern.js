@@ -22,6 +22,7 @@
   const NOTEBOOK_VERSION = "v1";
   const NOTEBOOK_CHUNK_SIZE = 250;
   const BUILD_ID = "20260924-modern";
+  const SRS_ENABLED = false;
 
   let originalData = [];
   let currentData = [];
@@ -36,6 +37,9 @@
   let viewMode = "table";
   let flashcardIndex = 0;
   let flashcardFlipped = false;
+  let flashcardDrag = null;
+  let suppressNextCardClick = false;
+  let flashcardTransitioning = false;
 
   firebase.initializeApp(firebaseConfig);
 
@@ -61,9 +65,14 @@
       "tableModeBtn", "flashcardModeBtn", "tableView",
       "flashcardView", "flashcardEmpty", "flashcardCard",
       "flashcardFaceLabel", "flashcardFront", "flashcardBack",
+      "flashcardSwipeStatus",
       "flashcardPrevBtn", "flashcardFlipBtn", "flashcardNextBtn",
       "flashcardCounter", "flashcardKnownState",
-      "flashcardUnknownBtn", "flashcardKnownBtn"
+      "flashcardSrsPanel", "flashcardSrsState", "flashcardHardBtn",
+      "flashcardGoodBtn", "flashcardEasyBtn", "flashcardUnknownBtn",
+      "flashcardKnownBtn", "dueFilterOption",
+      "quizColumnToggle", "quizColumnLabel", "quizColumnMenu",
+      "progressFilterToggle", "progressFilterLabel", "progressFilterMenu"
     ].forEach(id => {
       els[id] = document.getElementById(id);
     });
@@ -71,6 +80,8 @@
     if (els.buildBadge) {
       els.buildBadge.textContent = `Build ${BUILD_ID}`;
     }
+
+    applyFeatureFlags();
 
     els.fileInput.addEventListener("change", handleFile);
     els.shuffleBtn.addEventListener("click", shuffleWords);
@@ -86,12 +97,19 @@
     els.deleteNotebookBtn.addEventListener("click", deleteCurrentNotebook);
     els.tableModeBtn.addEventListener("click", () => setViewMode("table"));
     els.flashcardModeBtn.addEventListener("click", () => setViewMode("flashcard"));
-    els.flashcardCard.addEventListener("click", flipFlashcard);
+    els.flashcardCard.addEventListener("click", handleFlashcardCardClick);
+    els.flashcardCard.addEventListener("pointerdown", startFlashcardDrag);
+    els.flashcardCard.addEventListener("pointermove", moveFlashcardDrag);
+    els.flashcardCard.addEventListener("pointerup", endFlashcardDrag);
+    els.flashcardCard.addEventListener("pointercancel", cancelFlashcardDrag);
     els.flashcardFlipBtn.addEventListener("click", flipFlashcard);
     els.flashcardPrevBtn.addEventListener("click", showPreviousFlashcard);
     els.flashcardNextBtn.addEventListener("click", showNextFlashcard);
-    els.flashcardKnownBtn.addEventListener("click", () => markCurrentFlashcard(true));
-    els.flashcardUnknownBtn.addEventListener("click", () => markCurrentFlashcard(false));
+    els.flashcardKnownBtn.addEventListener("click", () => markCurrentFlashcardWithAnimation(true));
+    els.flashcardUnknownBtn.addEventListener("click", () => markCurrentFlashcardWithAnimation(false));
+    els.flashcardHardBtn.addEventListener("click", () => reviewCurrentFlashcard("hard"));
+    els.flashcardGoodBtn.addEventListener("click", () => reviewCurrentFlashcard("good"));
+    els.flashcardEasyBtn.addEventListener("click", () => reviewCurrentFlashcard("easy"));
 
     [els.showWord, els.showPron, els.showPos, els.showMeaning]
       .forEach(el => el.addEventListener("change", renderTable));
@@ -99,12 +117,111 @@
     els.quizColumn.addEventListener("change", resetFlashcardAndRender);
     els.progressFilter.addEventListener("change", resetFlashcardAndRender);
 
+    setupCustomSelect("quizColumn", "quizColumnToggle", "quizColumnLabel", "quizColumnMenu");
+    setupCustomSelect("progressFilter", "progressFilterToggle", "progressFilterLabel", "progressFilterMenu");
+    document.addEventListener("click", closeCustomSelects);
+
     auth.onAuthStateChanged(handleAuthStateChanged);
 
     loadLocalCache();
     loadNotebookCache();
     renderNotebookOptions();
     renderTable();
+  }
+
+  function applyFeatureFlags() {
+    if (SRS_ENABLED) {
+      return;
+    }
+
+    els.flashcardSrsPanel?.classList.add("hidden");
+    if (els.dueFilterOption) {
+      els.dueFilterOption.hidden = true;
+    }
+    if (els.progressFilter?.value === "due") {
+      els.progressFilter.value = "all";
+    }
+  }
+
+  function getVisibleSelectOptions(select) {
+    return Array.from(select.options)
+      .filter(option => !option.hidden && !option.disabled);
+  }
+
+  function closeCustomSelects() {
+    [
+      [els.quizColumnToggle, els.quizColumnMenu],
+      [els.progressFilterToggle, els.progressFilterMenu]
+    ].forEach(([toggle, menu]) => {
+      toggle?.setAttribute("aria-expanded", "false");
+      menu?.classList.add("hidden");
+    });
+  }
+
+  function updateCustomSelect(select, label, menu) {
+    const selectedOption = select.options[select.selectedIndex];
+
+    if (label) {
+      label.textContent = selectedOption?.textContent || "";
+    }
+
+    if (!menu) {
+      return;
+    }
+
+    menu.replaceChildren();
+
+    getVisibleSelectOptions(select).forEach(option => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "custom-select-option";
+      item.role = "option";
+      item.textContent = option.textContent;
+      item.dataset.value = option.value;
+
+      const isActive = option.value === select.value;
+      item.classList.toggle("active", isActive);
+      item.setAttribute("aria-selected", String(isActive));
+
+      item.addEventListener("click", event => {
+        event.stopPropagation();
+        select.value = option.value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        closeCustomSelects();
+      });
+
+      menu.appendChild(item);
+    });
+  }
+
+  function setupCustomSelect(selectId, toggleId, labelId, menuId) {
+    const select = els[selectId];
+    const toggle = els[toggleId];
+    const label = els[labelId];
+    const menu = els[menuId];
+
+    if (!select || !toggle || !label || !menu) {
+      return;
+    }
+
+    updateCustomSelect(select, label, menu);
+
+    toggle.addEventListener("click", event => {
+      event.stopPropagation();
+      const willOpen = menu.classList.contains("hidden");
+
+      closeCustomSelects();
+      toggle.setAttribute("aria-expanded", String(willOpen));
+      menu.classList.toggle("hidden", !willOpen);
+
+      if (willOpen) {
+        menu.querySelector(".custom-select-option.active")?.focus();
+      }
+    });
+
+    select.addEventListener("change", () => {
+      updateCustomSelect(select, label, menu);
+    });
   }
 
   /* -----------------------------
@@ -215,6 +332,117 @@
     return quiz ? isKnownForQuiz(row, quiz) : isKnownOverall(row);
   }
 
+  function getSrsState(row) {
+    const state = getWordProgress(row)._srs;
+
+    if (!state || typeof state !== "object") {
+      return null;
+    }
+
+    return state;
+  }
+
+  function isDueForReview(row) {
+    if (!SRS_ENABLED) {
+      return false;
+    }
+
+    const state = getSrsState(row);
+
+    if (!state?.dueAt) {
+      return true;
+    }
+
+    return Number(state.dueAt) <= Date.now();
+  }
+
+  function formatReviewDueAt(timestamp) {
+    if (!timestamp) {
+      return "Chưa có lịch ôn";
+    }
+
+    const dueDate = new Date(Number(timestamp));
+    const today = new Date();
+    const tomorrow = new Date();
+
+    today.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    const dueDay = new Date(dueDate);
+    dueDay.setHours(0, 0, 0, 0);
+
+    if (dueDay.getTime() === today.getTime()) {
+      return "Ôn hôm nay";
+    }
+
+    if (dueDay.getTime() === tomorrow.getTime()) {
+      return "Ôn ngày mai";
+    }
+
+    return `Ôn ${dueDate.toLocaleDateString("vi-VN")}`;
+  }
+
+  function describeSrsState(row) {
+    const state = getSrsState(row);
+
+    if (!state) {
+      return "Chưa có lịch ôn";
+    }
+
+    const level = Number(state.level || 0);
+    const reviewCount = Number(state.reviewCount || 0);
+    const dueText = formatReviewDueAt(state.dueAt);
+
+    return `${dueText} · cấp ${level} · ${reviewCount} lần ôn`;
+  }
+
+  function getNextSrsState(row, rating) {
+    const current = getSrsState(row) || {};
+    const currentLevel = Number(current.level || 0);
+    const intervalsByLevel = [1, 3, 7, 14, 30, 60, 120];
+    let nextLevel = currentLevel;
+    let intervalDays = 1;
+
+    if (rating === "hard") {
+      nextLevel = Math.max(0, currentLevel - 1);
+      intervalDays = 0.25;
+    } else if (rating === "easy") {
+      nextLevel = Math.min(intervalsByLevel.length - 1, currentLevel + 2);
+      intervalDays = intervalsByLevel[nextLevel];
+    } else {
+      nextLevel = Math.min(intervalsByLevel.length - 1, currentLevel + 1);
+      intervalDays = intervalsByLevel[nextLevel];
+    }
+
+    const now = Date.now();
+
+    return {
+      level: nextLevel,
+      rating,
+      dueAt: now + intervalDays * 24 * 60 * 60 * 1000,
+      lastReviewedAt: now,
+      reviewCount: Number(current.reviewCount || 0) + 1
+    };
+  }
+
+  async function applySrsReview(row, rating) {
+    if (!SRS_ENABLED) {
+      return;
+    }
+
+    const key = makeWordKey(row);
+
+    if (!progressCache[key]) {
+      progressCache[key] = {};
+    }
+
+    progressCache[key]._srs = getNextSrsState(row, rating);
+    saveProgressCache();
+
+    await syncWordToCloud(row);
+  }
+
   async function setKnownFromCheckbox(row, checked) {
     const key = makeWordKey(row);
     const quiz = getQuizColumn();
@@ -236,6 +464,10 @@
       } else {
         // Nếu đang "Không kiểm tra", reset toàn bộ lịch sử đúng của từ.
         for (const field of Object.keys(progressCache[key])) {
+          if (field.startsWith("_")) {
+            continue;
+          }
+
           progressCache[key][field] = false;
         }
       }
@@ -255,6 +487,9 @@
     }
 
     progressCache[key][quizColumn] = true;
+    if (SRS_ENABLED) {
+      progressCache[key]._srs = getNextSrsState(row, "good");
+    }
     saveProgressCache();
 
     await syncWordToCloud(row);
@@ -272,6 +507,9 @@
       progressCache[key][quizColumn] = false;
     }
 
+    if (SRS_ENABLED) {
+      progressCache[key]._srs = getNextSrsState(row, "hard");
+    }
     saveProgressCache();
 
     await syncWordToCloud(row);
@@ -1119,6 +1357,10 @@
     }
 
     return currentData.filter(row => {
+      if (filter === "due") {
+        return isDueForReview(row);
+      }
+
       const known = isKnownInCurrentMode(row);
 
       return filter === "known" ? known : !known;
@@ -1194,10 +1436,12 @@
     if (!hasRows) {
       flashcardIndex = 0;
       flashcardFlipped = false;
+      resetFlashcardDragVisuals();
       els.flashcardEmpty.classList.remove("hidden");
       els.flashcardCard.classList.add("hidden");
       els.flashcardCounter.textContent = "0/0";
       els.flashcardKnownState.textContent = "";
+      els.flashcardSrsState.textContent = "Chưa có lịch ôn";
       setFlashcardButtonsDisabled(true);
       return;
     }
@@ -1210,14 +1454,16 @@
     const questionColumn = getFlashcardQuestionColumn();
     const known = isKnownInCurrentMode(row);
 
+    resetFlashcardDragVisuals();
     els.flashcardEmpty.classList.add("hidden");
     els.flashcardCard.classList.remove("hidden");
+    els.flashcardCard.classList.toggle("flipped", flashcardFlipped);
     els.flashcardFront.textContent = row[questionColumn] || "(Trống)";
-    els.flashcardFaceLabel.textContent = flashcardFlipped ? "Mặt sau" : questionColumn;
-    els.flashcardBack.classList.toggle("hidden", !flashcardFlipped);
+    els.flashcardFaceLabel.textContent = questionColumn;
     els.flashcardBack.replaceChildren(...createFlashcardBackRows(row, questionColumn));
     els.flashcardCounter.textContent = `${flashcardIndex + 1}/${rows.length}`;
     els.flashcardKnownState.textContent = known ? "Đã thuộc" : "Chưa thuộc";
+    els.flashcardSrsState.textContent = describeSrsState(row);
 
     setFlashcardButtonsDisabled(false);
     els.flashcardPrevBtn.disabled = flashcardIndex === 0;
@@ -1247,10 +1493,43 @@
   function setFlashcardButtonsDisabled(disabled) {
     [
       els.flashcardPrevBtn, els.flashcardFlipBtn, els.flashcardNextBtn,
+      els.flashcardHardBtn, els.flashcardGoodBtn, els.flashcardEasyBtn,
       els.flashcardKnownBtn, els.flashcardUnknownBtn
     ].forEach(button => {
       button.disabled = disabled;
     });
+  }
+
+  function resetFlashcardDragVisuals() {
+    if (!els.flashcardCard) {
+      return;
+    }
+
+    els.flashcardCard.style.transform = "";
+    els.flashcardCard.classList.remove(
+      "is-dragging",
+      "swipe-known",
+      "swipe-unknown",
+      "swipe-exit-left",
+      "swipe-exit-right",
+      "review-exit-left",
+      "review-exit-right",
+      "nav-exit-left",
+      "nav-exit-right"
+    );
+
+    if (els.flashcardSwipeStatus) {
+      els.flashcardSwipeStatus.textContent = "";
+    }
+  }
+
+  function handleFlashcardCardClick() {
+    if (suppressNextCardClick) {
+      suppressNextCardClick = false;
+      return;
+    }
+
+    flipFlashcard();
   }
 
   function flipFlashcard() {
@@ -1262,29 +1541,171 @@
     renderFlashcard();
   }
 
-  function showPreviousFlashcard() {
-    if (flashcardIndex <= 0) {
+  function startFlashcardDrag(event) {
+    if (!getFlashcardRows().length || event.button > 0) {
       return;
     }
 
-    flashcardIndex--;
-    flashcardFlipped = false;
-    renderFlashcard();
+    flashcardDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      currentX: event.clientX,
+      moved: false
+    };
+
+    els.flashcardCard.setPointerCapture?.(event.pointerId);
+    els.flashcardCard.classList.add("is-dragging");
   }
 
-  function showNextFlashcard() {
+  function moveFlashcardDrag(event) {
+    if (!flashcardDrag || flashcardDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    flashcardDrag.currentX = event.clientX;
+    const deltaX = flashcardDrag.currentX - flashcardDrag.startX;
+    const absDelta = Math.abs(deltaX);
+    const rotate = Math.max(-10, Math.min(10, deltaX / 18));
+
+    if (absDelta > 8) {
+      flashcardDrag.moved = true;
+      suppressNextCardClick = true;
+    }
+
+    els.flashcardCard.style.transform = `translateX(${deltaX}px) rotate(${rotate}deg)`;
+    els.flashcardCard.classList.toggle("swipe-known", deltaX > 55);
+    els.flashcardCard.classList.toggle("swipe-unknown", deltaX < -55);
+
+    if (els.flashcardSwipeStatus) {
+      els.flashcardSwipeStatus.textContent =
+        deltaX > 55 ? "Đã thuộc" : deltaX < -55 ? "Chưa thuộc" : "";
+    }
+  }
+
+  function endFlashcardDrag(event) {
+    if (!flashcardDrag || flashcardDrag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = flashcardDrag.currentX - flashcardDrag.startX;
+    const threshold = Math.min(150, Math.max(95, els.flashcardCard.offsetWidth * .22));
+    const shouldReview = Math.abs(deltaX) >= threshold;
+    const known = deltaX > 0;
+
+    els.flashcardCard.releasePointerCapture?.(event.pointerId);
+    flashcardDrag = null;
+
+    if (!shouldReview) {
+      resetFlashcardDragVisuals();
+      return;
+    }
+
+    els.flashcardCard.classList.remove("is-dragging");
+    els.flashcardCard.classList.add(known ? "swipe-exit-right" : "swipe-exit-left");
+    markCurrentFlashcard(known);
+    setTimeout(() => {
+      suppressNextCardClick = false;
+    }, 250);
+  }
+
+  function cancelFlashcardDrag(event) {
+    if (flashcardDrag?.pointerId === event.pointerId) {
+      flashcardDrag = null;
+    }
+
+    resetFlashcardDragVisuals();
+  }
+
+  function waitForFlashcardTransition(duration = 560) {
+    return new Promise(resolve => {
+      setTimeout(resolve, duration);
+    });
+  }
+
+  async function showPreviousFlashcard() {
+    if (flashcardTransitioning || flashcardIndex <= 0) {
+      return;
+    }
+
+    flashcardTransitioning = true;
+    try {
+      playFlashcardNavAnimation("prev");
+      await waitForFlashcardTransition();
+      flashcardIndex--;
+      flashcardFlipped = false;
+      renderFlashcard();
+    } finally {
+      flashcardTransitioning = false;
+    }
+  }
+
+  async function showNextFlashcard() {
     const rows = getFlashcardRows();
 
-    if (flashcardIndex >= rows.length - 1) {
+    if (flashcardTransitioning || flashcardIndex >= rows.length - 1) {
       return;
     }
 
-    flashcardIndex++;
-    flashcardFlipped = false;
-    renderFlashcard();
+    flashcardTransitioning = true;
+    try {
+      playFlashcardNavAnimation("next");
+      await waitForFlashcardTransition();
+      flashcardIndex++;
+      flashcardFlipped = false;
+      renderFlashcard();
+    } finally {
+      flashcardTransitioning = false;
+    }
   }
 
-  async function markCurrentFlashcard(known) {
+  function advanceFlashcardAfterReview(reviewedKey, previousIndex) {
+    const rows = getFlashcardRows();
+
+    if (!rows.length) {
+      flashcardIndex = 0;
+      flashcardFlipped = false;
+      return;
+    }
+
+    const rowAtSameIndex = rows[previousIndex];
+
+    if (rowAtSameIndex && makeWordKey(rowAtSameIndex) === reviewedKey) {
+      flashcardIndex = Math.min(previousIndex + 1, rows.length - 1);
+    } else {
+      flashcardIndex = Math.min(previousIndex, rows.length - 1);
+    }
+
+    flashcardFlipped = false;
+  }
+
+  function waitForFlashcardExit() {
+    return waitForFlashcardTransition(650);
+  }
+
+  function playFlashcardNavAnimation(direction) {
+    if (!els.flashcardCard || els.flashcardCard.classList.contains("hidden")) {
+      return;
+    }
+
+    resetFlashcardDragVisuals();
+    els.flashcardCard.classList.add(
+      direction === "next" ? "nav-exit-left" : "nav-exit-right"
+    );
+  }
+
+  function playFlashcardReviewAnimation(known) {
+    if (!els.flashcardCard || els.flashcardCard.classList.contains("hidden")) {
+      return;
+    }
+
+    resetFlashcardDragVisuals();
+    els.flashcardCard.classList.add(
+      known ? "review-exit-right" : "review-exit-left",
+      known ? "swipe-known" : "swipe-unknown"
+    );
+  }
+
+  async function commitCurrentFlashcardReview(known) {
     const rows = getFlashcardRows();
     const row = rows[flashcardIndex];
 
@@ -1292,7 +1713,52 @@
       return;
     }
 
+    const previousIndex = flashcardIndex;
+    const reviewedKey = makeWordKey(row);
+
     await setKnownFromCheckbox(row, known);
+    await applySrsReview(row, known ? "good" : "hard");
+    advanceFlashcardAfterReview(reviewedKey, previousIndex);
+    renderTable();
+  }
+
+  async function markCurrentFlashcard(known) {
+    await commitCurrentFlashcardReview(known);
+  }
+
+  async function markCurrentFlashcardWithAnimation(known) {
+    if (flashcardTransitioning) {
+      return;
+    }
+
+    flashcardTransitioning = true;
+    try {
+      playFlashcardReviewAnimation(known);
+      await waitForFlashcardExit();
+      await commitCurrentFlashcardReview(known);
+    } finally {
+      flashcardTransitioning = false;
+    }
+  }
+
+  async function reviewCurrentFlashcard(rating) {
+    const rows = getFlashcardRows();
+    const row = rows[flashcardIndex];
+
+    if (!row) {
+      return;
+    }
+
+    const previousIndex = flashcardIndex;
+    const reviewedKey = makeWordKey(row);
+
+    await applySrsReview(row, rating);
+
+    if (rating !== "hard") {
+      await setKnownFromCheckbox(row, true);
+    }
+
+    advanceFlashcardAfterReview(reviewedKey, previousIndex);
     renderTable();
   }
 
@@ -1464,7 +1930,12 @@
     }
 
     const filter = els.progressFilter.value;
-    const filterLabel = { all: "Toàn bộ", known: "Đã thuộc", unknown: "Chưa thuộc" }[filter];
+    const filterLabel = {
+      all: "Toàn bộ",
+      due: "Cần ôn",
+      known: "Đã thuộc",
+      unknown: "Chưa thuộc"
+    }[filter];
 
     els.status.textContent =
       `Tổng ${currentData.length} từ • Hiển thị ${count} • ${filterLabel}` +
