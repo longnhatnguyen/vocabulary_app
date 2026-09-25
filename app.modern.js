@@ -21,7 +21,7 @@
   const STORAGE_VERSION = "v2";
   const NOTEBOOK_VERSION = "v1";
   const NOTEBOOK_CHUNK_SIZE = 250;
-  const BUILD_ID = "20260924-modern";
+  const BUILD_ID = "20260925-bootstrap-dropdown";
   const SRS_ENABLED = false;
 
   let originalData = [];

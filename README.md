@@ -1,6 +1,6 @@
 # Vocabulary App - Modern Minimal UI
 
-Build: 20260924-modern
+Build: 20260925-bootstrap-dropdown
 
 Upload 3 file:
 - index.html
