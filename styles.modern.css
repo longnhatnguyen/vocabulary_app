@@ -1004,6 +1004,85 @@ tr.wrong {
   height: 40px;
 }
 
+/* App dialog */
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(16, 24, 40, .46);
+  backdrop-filter: blur(6px);
+}
+
+.app-dialog {
+  width: min(430px, 100%);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(208, 213, 221, .95);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 24px 70px rgba(16, 24, 40, .24);
+  animation: dialog-pop .18s cubic-bezier(.2, .75, .25, 1);
+}
+
+.app-dialog-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.app-dialog-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.app-dialog-body {
+  min-width: 0;
+}
+
+.app-dialog-body h2 {
+  margin: 1px 0 6px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.app-dialog-body p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.app-dialog-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     width: min(100% - 14px, 1280px);

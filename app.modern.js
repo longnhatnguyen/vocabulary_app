@@ -21,7 +21,7 @@
   const STORAGE_VERSION = "v2";
   const NOTEBOOK_VERSION = "v1";
   const NOTEBOOK_CHUNK_SIZE = 250;
-  const BUILD_ID = "20260925-bootstrap-dropdown";
+  const BUILD_ID = "20260925-app-dialog";
   const SRS_ENABLED = false;
 
   let originalData = [];
@@ -72,7 +72,10 @@
       "flashcardGoodBtn", "flashcardEasyBtn", "flashcardUnknownBtn",
       "flashcardKnownBtn", "dueFilterOption",
       "quizColumnToggle", "quizColumnLabel", "quizColumnMenu",
-      "progressFilterToggle", "progressFilterLabel", "progressFilterMenu"
+      "progressFilterToggle", "progressFilterLabel", "progressFilterMenu",
+      "notebookSelectToggle", "notebookSelectLabel", "notebookSelectMenu",
+      "appDialogBackdrop", "appDialogTitle", "appDialogMessage",
+      "appDialogCancelBtn", "appDialogOkBtn"
     ].forEach(id => {
       els[id] = document.getElementById(id);
     });
@@ -117,6 +120,7 @@
     els.quizColumn.addEventListener("change", resetFlashcardAndRender);
     els.progressFilter.addEventListener("change", resetFlashcardAndRender);
 
+    setupCustomSelect("notebookSelect", "notebookSelectToggle", "notebookSelectLabel", "notebookSelectMenu");
     setupCustomSelect("quizColumn", "quizColumnToggle", "quizColumnLabel", "quizColumnMenu");
     setupCustomSelect("progressFilter", "progressFilterToggle", "progressFilterLabel", "progressFilterMenu");
     document.addEventListener("click", closeCustomSelects);
@@ -150,6 +154,7 @@
 
   function closeCustomSelects() {
     [
+      [els.notebookSelectToggle, els.notebookSelectMenu],
       [els.quizColumnToggle, els.quizColumnMenu],
       [els.progressFilterToggle, els.progressFilterMenu]
     ].forEach(([toggle, menu]) => {
@@ -222,6 +227,70 @@
     select.addEventListener("change", () => {
       updateCustomSelect(select, label, menu);
     });
+  }
+
+  function refreshCustomSelect(selectId, labelId, menuId) {
+    const select = els[selectId];
+    const label = els[labelId];
+    const menu = els[menuId];
+
+    if (select && label && menu) {
+      updateCustomSelect(select, label, menu);
+    }
+  }
+
+  function showAppDialog({ title = "Thông báo", message = "", confirm = false, okText = "OK", cancelText = "Hủy" }) {
+    return new Promise(resolve => {
+      let settled = false;
+
+      const cleanup = result => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        els.appDialogBackdrop.classList.add("hidden");
+        els.appDialogOkBtn.removeEventListener("click", handleOk);
+        els.appDialogCancelBtn.removeEventListener("click", handleCancel);
+        els.appDialogBackdrop.removeEventListener("click", handleBackdrop);
+        document.removeEventListener("keydown", handleKeydown);
+        resolve(result);
+      };
+
+      const handleOk = () => cleanup(true);
+      const handleCancel = () => cleanup(false);
+      const handleBackdrop = event => {
+        if (event.target === els.appDialogBackdrop) {
+          cleanup(false);
+        }
+      };
+      const handleKeydown = event => {
+        if (event.key === "Escape") {
+          cleanup(false);
+        }
+      };
+
+      els.appDialogTitle.textContent = title;
+      els.appDialogMessage.textContent = message;
+      els.appDialogOkBtn.textContent = okText;
+      els.appDialogCancelBtn.textContent = cancelText;
+      els.appDialogCancelBtn.classList.toggle("hidden", !confirm);
+      els.appDialogBackdrop.classList.remove("hidden");
+
+      els.appDialogOkBtn.addEventListener("click", handleOk);
+      els.appDialogCancelBtn.addEventListener("click", handleCancel);
+      els.appDialogBackdrop.addEventListener("click", handleBackdrop);
+      document.addEventListener("keydown", handleKeydown);
+      els.appDialogOkBtn.focus();
+    });
+  }
+
+  function showAppAlert(message, title = "Thông báo") {
+    return showAppDialog({ title, message, confirm: false, okText: "OK" });
+  }
+
+  function showAppConfirm(message, title = "Xác nhận", okText = "OK") {
+    return showAppDialog({ title, message, confirm: true, okText, cancelText: "Hủy" });
   }
 
   /* -----------------------------
@@ -527,12 +596,16 @@
       console.error("Google login error:", error);
 
       if (error.code === "auth/unauthorized-domain") {
-        alert(
+        await showAppAlert(
           "Tên miền hiện tại chưa được cho phép trong Firebase Authentication. " +
-          "Vào Authentication → Settings → Authorized domains và thêm nhatnl.io.vn."
+          "Vào Authentication → Settings → Authorized domains và thêm nhatnl.io.vn.",
+          "Không đăng nhập được"
         );
       } else if (error.code !== "auth/popup-closed-by-user") {
-        alert("Đăng nhập Google chưa thành công: " + (error.message || error.code));
+        await showAppAlert(
+          "Đăng nhập Google chưa thành công: " + (error.message || error.code),
+          "Không đăng nhập được"
+        );
       }
 
       setSyncStatus("");
@@ -793,6 +866,7 @@
         : "";
 
     updateCurrentNotebookUi();
+    refreshCustomSelect("notebookSelect", "notebookSelectLabel", "notebookSelectMenu");
   }
 
   function updateCurrentNotebookUi() {
@@ -814,6 +888,7 @@
 
     els.notebookName.value = notebook.name || "";
     els.notebookSelect.value = currentNotebookId;
+    refreshCustomSelect("notebookSelect", "notebookSelectLabel", "notebookSelectMenu");
 
     if (els.activeNotebookLabel) {
       els.activeNotebookLabel.textContent =
@@ -833,6 +908,7 @@
   function startNewNotebook() {
     currentNotebookId = null;
     els.notebookSelect.value = "";
+    refreshCustomSelect("notebookSelect", "notebookSelectLabel", "notebookSelectMenu");
     els.notebookName.value = "";
 
     if (els.activeNotebookLabel) {
@@ -869,7 +945,7 @@
         "Chưa có dữ liệu. Hãy import Excel trước khi lưu sổ.",
         "error"
       );
-      alert("Chưa có danh sách từ để lưu. Hãy import Excel trước.");
+      await showAppAlert("Chưa có danh sách từ để lưu. Hãy import Excel trước.");
       return;
     }
 
@@ -939,7 +1015,7 @@
     } catch (error) {
       console.error("Save notebook error:", error);
       setNotebookStatus("Không lưu được sổ tay.", "error");
-      alert("Không lưu được sổ tay: " + (error.message || error));
+      await showAppAlert("Không lưu được sổ tay: " + (error.message || error), "Không lưu được");
     } finally {
       button.disabled = false;
       button.innerHTML = oldButtonHtml;
@@ -1174,7 +1250,7 @@
       }
 
       setNotebookStatus("Không mở được sổ tay.", "error");
-      alert("Không mở được sổ tay: " + (error.message || error));
+      await showAppAlert("Không mở được sổ tay: " + (error.message || error), "Không mở được");
     }
   }
 
@@ -1182,13 +1258,13 @@
     const notebookId = currentNotebookId || els.notebookSelect.value;
 
     if (!notebookId || !notebookCache[notebookId]) {
-      alert("Hãy chọn sổ tay cần xóa.");
+      await showAppAlert("Hãy chọn sổ tay cần xóa.");
       return;
     }
 
     const notebook = notebookCache[notebookId];
 
-    if (!confirm(`Xóa sổ “${notebook.name}”? Tiến độ học từ vẫn được giữ lại.`)) {
+    if (!await showAppConfirm(`Xóa sổ “${notebook.name}”? Tiến độ học từ vẫn được giữ lại.`, "Xóa sổ tay", "Xóa")) {
       return;
     }
 
@@ -1220,7 +1296,7 @@
     } catch (error) {
       console.error("Delete notebook error:", error);
       setNotebookStatus("Không xóa được sổ tay.", "error");
-      alert("Không xóa được sổ tay: " + (error.message || error));
+      await showAppAlert("Không xóa được sổ tay: " + (error.message || error), "Không xóa được");
     }
   }
 
@@ -1269,7 +1345,7 @@
 
     const reader = new FileReader();
 
-    reader.onload = function (e) {
+    reader.onload = async function (e) {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: "array" });
@@ -1280,7 +1356,7 @@
         });
 
         if (!rows.length) {
-          alert("File Excel không có dữ liệu.");
+          await showAppAlert("File Excel không có dữ liệu.", "File không hợp lệ");
           return;
         }
 
@@ -1288,9 +1364,10 @@
         const missing = required.filter(column => !(column in rows[0]));
 
         if (missing.length) {
-          alert(
+          await showAppAlert(
             "File Excel phải có đủ 4 cột: " +
-            "Từ, Phiên âm, Loại từ, Nghĩa"
+            "Từ, Phiên âm, Loại từ, Nghĩa",
+            "File không hợp lệ"
           );
           return;
         }
@@ -1310,6 +1387,7 @@
         // tránh ghi đè nhầm lên sổ đang chọn.
         currentNotebookId = null;
         els.notebookSelect.value = "";
+        refreshCustomSelect("notebookSelect", "notebookSelectLabel", "notebookSelectMenu");
 
         if (els.activeNotebookLabel) {
           els.activeNotebookLabel.textContent = "File mới chưa lưu";
@@ -1330,7 +1408,7 @@
         }
       } catch (error) {
         console.error(error);
-        alert("Không đọc được file Excel.");
+        await showAppAlert("Không đọc được file Excel.", "Không đọc được file");
       }
     };
 
@@ -1956,9 +2034,9 @@
      ACTIONS
   ----------------------------- */
 
-  function shuffleWords() {
+  async function shuffleWords() {
     if (!currentData.length) {
-      alert("Bạn chưa import file Excel.");
+      await showAppAlert("Bạn chưa import file Excel.");
       return;
     }
 
@@ -1973,9 +2051,9 @@
     renderTable();
   }
 
-  function restoreOriginal() {
+  async function restoreOriginal() {
     if (!originalData.length) {
-      alert("Bạn chưa import file Excel.");
+      await showAppAlert("Bạn chưa import file Excel.");
       return;
     }
 
@@ -1985,14 +2063,14 @@
 
   async function grade() {
     if (!currentData.length) {
-      alert("Bạn chưa import file Excel.");
+      await showAppAlert("Bạn chưa import file Excel.");
       return;
     }
 
     const quiz = getQuizColumn();
 
     if (!quiz) {
-      alert("Hãy chọn nội dung muốn kiểm tra.");
+      await showAppAlert("Hãy chọn nội dung muốn kiểm tra.");
       return;
     }
 
@@ -2000,7 +2078,7 @@
     const visibleKeys = visibleColumns.map(column => column.key);
 
     if (!visibleKeys.includes(quiz)) {
-      alert(
+      await showAppAlert(
         `Cột "${quiz}" đang bị ẩn. ` +
         "Hãy bật hiển thị cột này để làm bài."
       );
@@ -2085,9 +2163,11 @@
   async function resetProgress() {
     const cloudText = currentUser ? " và trên Firestore" : "";
 
-    const confirmed = confirm(
+    const confirmed = await showAppConfirm(
       `Bạn có chắc muốn xóa toàn bộ tiến độ học ` +
-      `đã lưu trên trình duyệt này${cloudText} không?`
+      `đã lưu trên trình duyệt này${cloudText} không?`,
+      "Xóa tiến độ học",
+      "Xóa"
     );
 
     if (!confirmed) {
@@ -2136,7 +2216,7 @@
     }
 
     renderTable();
-    alert("Đã xóa toàn bộ tiến độ học.");
+    await showAppAlert("Đã xóa toàn bộ tiến độ học.", "Đã xóa");
   }
 
   function escapeHtml(value) {

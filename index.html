@@ -6,14 +6,14 @@
   <title>Ứng dụng học từ vựng</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="styles.modern.css?v=20260925-bootstrap-dropdown">
+  <link rel="stylesheet" href="styles.modern.css?v=20260925-app-dialog">
 
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script defer src="app.modern.js?v=20260925-bootstrap-dropdown"></script>
+  <script defer src="app.modern.js?v=20260925-app-dialog"></script>
 </head>
 
 <body>
@@ -119,9 +119,13 @@
 
         <div class="notebook-group">
           <div class="select-shell notebook-select-shell">
-            <select id="notebookSelect" title="Chọn sổ tay">
+            <select id="notebookSelect" class="native-select" title="Chọn sổ tay">
               <option value="">Chọn sổ tay</option>
             </select>
+            <button id="notebookSelectToggle" type="button" class="custom-select-toggle" aria-haspopup="listbox" aria-expanded="false">
+              <span id="notebookSelectLabel">Chọn sổ tay</span>
+            </button>
+            <div id="notebookSelectMenu" class="custom-select-menu hidden" role="listbox"></div>
             <svg><use href="#i-chevron"></use></svg>
           </div>
 
@@ -309,5 +313,21 @@
       </div>
     </div>
   </main>
+
+  <div id="appDialogBackdrop" class="app-dialog-backdrop hidden" role="presentation">
+    <div id="appDialog" class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage">
+      <div class="app-dialog-icon">
+        <svg><use href="#i-book"></use></svg>
+      </div>
+      <div class="app-dialog-body">
+        <h2 id="appDialogTitle">Thông báo</h2>
+        <p id="appDialogMessage"></p>
+      </div>
+      <div class="app-dialog-actions">
+        <button id="appDialogCancelBtn" type="button" class="btn btn-outline">Hủy</button>
+        <button id="appDialogOkBtn" type="button" class="btn btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
