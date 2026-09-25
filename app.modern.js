@@ -33,6 +33,9 @@
   let notebookCache = {};
   let currentNotebookId = null;
   let isLoadingCloud = false;
+  let viewMode = "table";
+  let flashcardIndex = 0;
+  let flashcardFlipped = false;
 
   firebase.initializeApp(firebaseConfig);
 
@@ -54,7 +57,13 @@
       "saveNotebookBtn", "newNotebookBtn", "deleteNotebookBtn",
       "notebookStatus", "activeNotebookLabel", "buildBadge",
       "stickyGradeBar", "stickyGradeBtn", "stickyShuffleBtn",
-      "stickyQuizLabel", "stickyCountLabel"
+      "stickyQuizLabel", "stickyCountLabel", "viewTitle",
+      "tableModeBtn", "flashcardModeBtn", "tableView",
+      "flashcardView", "flashcardEmpty", "flashcardCard",
+      "flashcardFaceLabel", "flashcardFront", "flashcardBack",
+      "flashcardPrevBtn", "flashcardFlipBtn", "flashcardNextBtn",
+      "flashcardCounter", "flashcardKnownState",
+      "flashcardUnknownBtn", "flashcardKnownBtn"
     ].forEach(id => {
       els[id] = document.getElementById(id);
     });
@@ -75,12 +84,20 @@
     els.saveNotebookBtn.addEventListener("click", saveCurrentNotebook);
     els.newNotebookBtn.addEventListener("click", startNewNotebook);
     els.deleteNotebookBtn.addEventListener("click", deleteCurrentNotebook);
+    els.tableModeBtn.addEventListener("click", () => setViewMode("table"));
+    els.flashcardModeBtn.addEventListener("click", () => setViewMode("flashcard"));
+    els.flashcardCard.addEventListener("click", flipFlashcard);
+    els.flashcardFlipBtn.addEventListener("click", flipFlashcard);
+    els.flashcardPrevBtn.addEventListener("click", showPreviousFlashcard);
+    els.flashcardNextBtn.addEventListener("click", showNextFlashcard);
+    els.flashcardKnownBtn.addEventListener("click", () => markCurrentFlashcard(true));
+    els.flashcardUnknownBtn.addEventListener("click", () => markCurrentFlashcard(false));
 
     [els.showWord, els.showPron, els.showPos, els.showMeaning]
       .forEach(el => el.addEventListener("change", renderTable));
 
-    els.quizColumn.addEventListener("change", renderTable);
-    els.progressFilter.addEventListener("change", renderTable);
+    els.quizColumn.addEventListener("change", resetFlashcardAndRender);
+    els.progressFilter.addEventListener("change", resetFlashcardAndRender);
 
     auth.onAuthStateChanged(handleAuthStateChanged);
 
@@ -1133,6 +1150,158 @@
     }
   }
 
+  function setViewMode(mode) {
+    viewMode = mode;
+    applyViewMode();
+    renderFlashcard();
+  }
+
+  function applyViewMode() {
+    const isFlashcard = viewMode === "flashcard";
+
+    els.tableModeBtn.classList.toggle("active", !isFlashcard);
+    els.flashcardModeBtn.classList.toggle("active", isFlashcard);
+    els.tableView.classList.toggle("hidden", isFlashcard);
+    els.flashcardView.classList.toggle("hidden", !isFlashcard);
+
+    if (els.viewTitle) {
+      els.viewTitle.textContent = isFlashcard ? "Flashcard" : "Danh sách từ";
+    }
+
+    if (els.stickyGradeBtn) {
+      els.stickyGradeBtn.style.display = isFlashcard ? "none" : "";
+    }
+  }
+
+  function resetFlashcardAndRender() {
+    flashcardIndex = 0;
+    flashcardFlipped = false;
+    renderTable();
+  }
+
+  function getFlashcardRows() {
+    return getFilteredData();
+  }
+
+  function getFlashcardQuestionColumn() {
+    return getQuizColumn() || columns[0].key;
+  }
+
+  function renderFlashcard() {
+    const rows = getFlashcardRows();
+    const hasRows = rows.length > 0;
+
+    if (!hasRows) {
+      flashcardIndex = 0;
+      flashcardFlipped = false;
+      els.flashcardEmpty.classList.remove("hidden");
+      els.flashcardCard.classList.add("hidden");
+      els.flashcardCounter.textContent = "0/0";
+      els.flashcardKnownState.textContent = "";
+      setFlashcardButtonsDisabled(true);
+      return;
+    }
+
+    if (flashcardIndex >= rows.length) {
+      flashcardIndex = rows.length - 1;
+    }
+
+    const row = rows[flashcardIndex];
+    const questionColumn = getFlashcardQuestionColumn();
+    const known = isKnownInCurrentMode(row);
+
+    els.flashcardEmpty.classList.add("hidden");
+    els.flashcardCard.classList.remove("hidden");
+    els.flashcardFront.textContent = row[questionColumn] || "(Trống)";
+    els.flashcardFaceLabel.textContent = flashcardFlipped ? "Mặt sau" : questionColumn;
+    els.flashcardBack.classList.toggle("hidden", !flashcardFlipped);
+    els.flashcardBack.replaceChildren(...createFlashcardBackRows(row, questionColumn));
+    els.flashcardCounter.textContent = `${flashcardIndex + 1}/${rows.length}`;
+    els.flashcardKnownState.textContent = known ? "Đã thuộc" : "Chưa thuộc";
+
+    setFlashcardButtonsDisabled(false);
+    els.flashcardPrevBtn.disabled = flashcardIndex === 0;
+    els.flashcardNextBtn.disabled = flashcardIndex === rows.length - 1;
+  }
+
+  function createFlashcardBackRows(row, questionColumn) {
+    return columns
+      .filter(column => column.key !== questionColumn)
+      .map(column => {
+        const item = document.createElement("div");
+        item.className = "flashcard-answer-row";
+
+        const label = document.createElement("span");
+        label.className = "flashcard-answer-label";
+        label.textContent = column.key;
+
+        const value = document.createElement("span");
+        value.className = "flashcard-answer-value";
+        value.textContent = row[column.key] || "(Trống)";
+
+        item.append(label, value);
+        return item;
+      });
+  }
+
+  function setFlashcardButtonsDisabled(disabled) {
+    [
+      els.flashcardPrevBtn, els.flashcardFlipBtn, els.flashcardNextBtn,
+      els.flashcardKnownBtn, els.flashcardUnknownBtn
+    ].forEach(button => {
+      button.disabled = disabled;
+    });
+  }
+
+  function flipFlashcard() {
+    if (!getFlashcardRows().length) {
+      return;
+    }
+
+    flashcardFlipped = !flashcardFlipped;
+    renderFlashcard();
+  }
+
+  function showPreviousFlashcard() {
+    if (flashcardIndex <= 0) {
+      return;
+    }
+
+    flashcardIndex--;
+    flashcardFlipped = false;
+    renderFlashcard();
+  }
+
+  function showNextFlashcard() {
+    const rows = getFlashcardRows();
+
+    if (flashcardIndex >= rows.length - 1) {
+      return;
+    }
+
+    flashcardIndex++;
+    flashcardFlipped = false;
+    renderFlashcard();
+  }
+
+  async function markCurrentFlashcard(known) {
+    const rows = getFlashcardRows();
+    const row = rows[flashcardIndex];
+
+    if (!row) {
+      return;
+    }
+
+    await setKnownFromCheckbox(row, known);
+    renderTable();
+  }
+
+  function finishRender(count) {
+    updateStatus(count);
+    renderFlashcard();
+    applyViewMode();
+  }
+
   function renderTable() {
     const thead = els.vocabTable.tHead;
     const tbody = els.vocabTable.tBodies[0];
@@ -1158,7 +1327,7 @@
       td.textContent = "Bạn đang ẩn toàn bộ các cột.";
       tr.appendChild(td);
       tbody.appendChild(tr);
-      updateStatus(0);
+      finishRender(0);
       return;
     }
 
@@ -1188,7 +1357,7 @@
         "Hãy chọn file Excel để bắt đầu."
       );
 
-      updateStatus(0);
+      finishRender(0);
       return;
     }
 
@@ -1199,7 +1368,7 @@
         "Không có từ nào phù hợp với bộ lọc hiện tại."
       );
 
-      updateStatus(0);
+      finishRender(0);
       return;
     }
 
@@ -1269,7 +1438,7 @@
     }
 
     tbody.appendChild(fragment);
-    updateStatus(filteredData.length);
+    finishRender(filteredData.length);
   }
 
   function appendMessageRow(tbody, colspan, message) {

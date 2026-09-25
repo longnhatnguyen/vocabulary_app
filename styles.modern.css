@@ -379,11 +379,51 @@ td input[type="text"]:focus {
 .secondary-bar {
   min-height: 54px;
   display: grid;
-  grid-template-columns: minmax(400px, 1.55fr) minmax(230px, .8fr) minmax(210px, .7fr);
+  grid-template-columns: minmax(178px, .65fr) minmax(400px, 1.55fr) minmax(230px, .8fr) minmax(210px, .7fr);
   gap: 8px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--surface-soft);
+}
+
+.view-switch {
+  min-width: 0;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.view-tab {
+  min-width: 0;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.view-tab svg {
+  width: 14px;
+  height: 14px;
+}
+
+.view-tab.active {
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .column-controls,
@@ -558,6 +598,108 @@ tr.wrong {
   font-size: 13px;
 }
 
+/* Flashcards */
+.flashcard-view {
+  min-height: 360px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 12px;
+  margin: 0 14px 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.flashcard-empty {
+  width: min(560px, 100%);
+  padding: 34px 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.flashcard-card {
+  width: min(620px, 100%);
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 26px;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 16px 44px rgba(16, 24, 40, .1);
+  cursor: pointer;
+  text-align: center;
+}
+
+.flashcard-face-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.flashcard-front {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 34px;
+  line-height: 1.18;
+}
+
+.flashcard-back {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.flashcard-answer-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.flashcard-answer-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.flashcard-answer-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.flashcard-controls,
+.flashcard-actions,
+.flashcard-progress {
+  width: min(620px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.flashcard-progress {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* Bottom grade dock */
 .grade-dock {
   position: fixed;
@@ -637,6 +779,10 @@ tr.wrong {
 
   .secondary-bar {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .view-switch {
+    grid-column: 1 / -1;
   }
 
   .column-controls {
@@ -726,6 +872,31 @@ tr.wrong {
   .table-wrap {
     max-height: calc(100vh - 210px);
     margin: 0 8px 8px;
+  }
+
+  .flashcard-view {
+    min-height: 330px;
+    margin: 0 8px 8px;
+    padding: 12px;
+  }
+
+  .flashcard-card {
+    min-height: 240px;
+    padding: 20px 16px;
+  }
+
+  .flashcard-front {
+    font-size: 26px;
+  }
+
+  .flashcard-answer-row {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .flashcard-controls,
+  .flashcard-actions {
+    flex-wrap: wrap;
   }
 
   th,

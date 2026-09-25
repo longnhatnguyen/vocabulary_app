@@ -21,6 +21,10 @@
       <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/>
       <path d="M4 5.5v16"/>
     </symbol>
+    <symbol id="i-card" viewBox="0 0 24 24">
+      <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/>
+      <path d="M8 10h8M8 14h5"/>
+    </symbol>
     <symbol id="i-upload" viewBox="0 0 24 24">
       <path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>
     </symbol>
@@ -156,6 +160,17 @@
       </div>
 
       <div class="secondary-bar">
+        <div class="view-switch" aria-label="Chon che do hoc">
+          <button id="tableModeBtn" type="button" class="view-tab active" data-mode="table">
+            <svg><use href="#i-book"></use></svg>
+            <span>Bảng</span>
+          </button>
+          <button id="flashcardModeBtn" type="button" class="view-tab" data-mode="flashcard">
+            <svg><use href="#i-card"></use></svg>
+            <span>Flashcard</span>
+          </button>
+        </div>
+
         <div class="column-controls">
           <div class="control-label">
             <svg><use href="#i-eye"></use></svg>
@@ -206,15 +221,41 @@
       <span id="notebookStatus" class="visually-hidden"></span>
 
       <div class="section-heading">
-        <h2>Danh sách từ</h2>
+        <h2 id="viewTitle">Danh sách từ</h2>
         <span id="status" class="table-meta">Chưa có dữ liệu.</span>
       </div>
 
-      <div class="table-wrap">
+      <div id="tableView" class="table-wrap">
         <table id="vocabTable">
           <thead></thead>
           <tbody></tbody>
         </table>
+      </div>
+
+      <div id="flashcardView" class="flashcard-view hidden">
+        <div id="flashcardEmpty" class="flashcard-empty">Hãy import hoặc chọn sổ tay để học flashcard.</div>
+
+        <button id="flashcardCard" type="button" class="flashcard-card hidden" aria-label="Lật flashcard">
+          <span id="flashcardFaceLabel" class="flashcard-face-label">Mặt trước</span>
+          <strong id="flashcardFront" class="flashcard-front"></strong>
+          <div id="flashcardBack" class="flashcard-back hidden"></div>
+        </button>
+
+        <div class="flashcard-controls">
+          <button id="flashcardPrevBtn" type="button" class="btn btn-outline">Trước</button>
+          <button id="flashcardFlipBtn" type="button" class="btn btn-primary">Lật thẻ</button>
+          <button id="flashcardNextBtn" type="button" class="btn btn-outline">Sau</button>
+        </div>
+
+        <div class="flashcard-progress">
+          <span id="flashcardCounter">0/0</span>
+          <span id="flashcardKnownState"></span>
+        </div>
+
+        <div class="flashcard-actions">
+          <button id="flashcardUnknownBtn" type="button" class="btn btn-outline">Chưa thuộc</button>
+          <button id="flashcardKnownBtn" type="button" class="btn btn-accent">Đã thuộc</button>
+        </div>
       </div>
 
       <div id="scoreBox" class="score-box"></div>
